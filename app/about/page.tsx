@@ -76,7 +76,7 @@ export default function AboutPage() {
               transition={{ duration: 0.7 }}
               className="bg-gradient-to-br from-accent/10 to-blue-200 dark:from-accent/20 dark:to-gray-700 rounded-3xl p-12 text-center"
             >
-              <div className="text-6xl font-bold text-accent mb-2">10+</div>
+              <div className="text-6xl font-bold text-accent mb-2">{new Date().getFullYear() - 2014}+</div>
               <div className="text-gray-600 dark:text-gray-400 text-lg">Years of Excellence</div>
               <div className="mt-8 grid grid-cols-2 gap-6">
                 <div>
