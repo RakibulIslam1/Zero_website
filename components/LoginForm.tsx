@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/components/AuthProvider'
+import { sendPasswordResetEmail } from 'firebase/auth'
+import { getFirebaseAuth } from '../lib/firebase'
+import Image from 'next/image'
 
 export default function LoginForm() {
   const router = useRouter()
@@ -14,6 +17,8 @@ export default function LoginForm() {
   const [form, setForm] = useState({ fullName: '', email: '', password: '', remember: false })
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [resetMessage, setResetMessage] = useState('')
+  const [isResetting, setIsResetting] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
@@ -23,6 +28,7 @@ export default function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage('')
+    setResetMessage('')
     setIsSubmitting(true)
 
     try {
@@ -41,12 +47,46 @@ export default function LoginForm() {
     }
   }
 
+  const handleForgotPassword = async () => {
+    setErrorMessage('')
+    setResetMessage('')
+
+    const email = form.email.trim()
+    if (!email) {
+      setErrorMessage('Enter your email first, then click Forgot Password.')
+      return
+    }
+
+    const firebaseAuth = getFirebaseAuth()
+    if (!firebaseAuth) {
+      setErrorMessage('Firebase is not configured yet.')
+      return
+    }
+
+    setIsResetting(true)
+    try {
+      await sendPasswordResetEmail(firebaseAuth, email)
+      setResetMessage('Password reset email sent. Please check your inbox.')
+    } catch {
+      setErrorMessage('Could not send reset email. Please verify the email address.')
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
   return (
     <div className="w-full max-w-lg">
       {/* Logo */}
       <div className="text-center mb-8">
-        <Link href="/" className="text-4xl font-bold text-accent tracking-widest">
-          ZERO COMPETITIONS
+        <Link href="/" className="inline-flex items-center justify-center" aria-label="Zero Competitions home">
+          <Image
+            src="/images/Zero-Competitions_logo.png"
+            alt="Zero Competitions"
+            width={300}
+            height={84}
+            className="h-16 w-auto"
+            priority
+          />
         </Link>
         <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">
           {mode === 'signin' ? 'Sign in to your account' : 'Create your account'}
@@ -148,12 +188,18 @@ export default function LoginForm() {
               />
               <span className="text-sm text-gray-600 dark:text-gray-400">Remember me</span>
             </label>
-            <Link href="#" className="text-sm text-accent hover:text-accent/80 font-medium">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={isResetting}
+              className="text-sm text-accent hover:text-accent/80 font-medium disabled:opacity-70"
+            >
               Forgot Password?
-            </Link>
+            </button>
           </div>
 
           {errorMessage && <p className="text-sm text-red-700">{errorMessage}</p>}
+          {resetMessage && <p className="text-sm text-green-700">{resetMessage}</p>}
 
           <button
             type="submit"

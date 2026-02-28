@@ -8,7 +8,8 @@ import {
   signOut as firebaseSignOut,
   updateProfile as updateFirebaseProfile,
 } from 'firebase/auth'
-import { getFirebaseAuth } from '../lib/firebase'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { getFirebaseAuth, getFirestoreDb } from '../lib/firebase'
 
 type IdType = 'birth-registration' | 'passport'
 
@@ -50,19 +51,13 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (fullName: string, email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
-  updateProfile: (profile: UserProfile) => void
-  addRegistration: (registration: CompetitionRegistration) => void
+  updateProfile: (profile: UserProfile) => Promise<void>
+  addRegistration: (registration: CompetitionRegistration) => Promise<void>
   isProfileComplete: boolean
   isRegisteredForCompetition: (competitionId: number) => boolean
 }
 
-const STORAGE_KEY = 'zero-competitions-auth-state'
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-function makeId() {
-  return Math.random().toString(36).slice(2, 10)
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -70,41 +65,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [registrations, setRegistrations] = useState<CompetitionRegistration[]>([])
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-
-    try {
-      const parsed = JSON.parse(raw) as {
-        user: AuthUser | null
-        profile: UserProfile | null
-        registrations: CompetitionRegistration[]
-      }
-      setUser(parsed.user)
-      setProfile(parsed.profile)
-      setRegistrations(parsed.registrations ?? [])
-    } catch {
-      localStorage.removeItem(STORAGE_KEY)
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        user,
-        profile,
-        registrations,
-      })
-    )
-  }, [user, profile, registrations])
-
-  useEffect(() => {
     const firebaseAuth = getFirebaseAuth()
     if (!firebaseAuth) return
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser?.email) {
         setUser(null)
+        setProfile(null)
+        setRegistrations([])
         return
       }
 
@@ -118,27 +86,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(syncedUser)
 
-      setProfile((current) => {
-        if (!current || current.email !== firebaseUser.email) {
-          return {
-            fullName: syncedUser.fullName,
-            email: syncedUser.email,
-            phone: '',
-            address: '',
-            dateOfBirth: '',
-            idType: 'birth-registration',
-            idNumber: '',
-            profilePhotoDataUrl: '',
-            idDocumentPhotoDataUrl: '',
-          }
-        }
-
-        return {
-          ...current,
-          fullName: current.fullName || syncedUser.fullName,
+      const db = getFirestoreDb()
+      if (!db) {
+        setProfile({
+          fullName: syncedUser.fullName,
           email: syncedUser.email,
-        }
-      })
+          phone: '',
+          address: '',
+          dateOfBirth: '',
+          idType: 'birth-registration',
+          idNumber: '',
+          profilePhotoDataUrl: '',
+          idDocumentPhotoDataUrl: '',
+        })
+        setRegistrations([])
+        return
+      }
+
+      const profileRef = doc(db, 'profiles', syncedUser.id)
+      const registrationRef = doc(db, 'userRegistrations', syncedUser.id)
+
+      const [profileSnap, registrationSnap] = await Promise.all([
+        getDoc(profileRef),
+        getDoc(registrationRef),
+      ])
+
+      if (profileSnap.exists()) {
+        const profileData = profileSnap.data() as UserProfile
+        setProfile({
+          ...profileData,
+          fullName: profileData.fullName || syncedUser.fullName,
+          email: syncedUser.email,
+        })
+      } else {
+        setProfile({
+          fullName: syncedUser.fullName,
+          email: syncedUser.email,
+          phone: '',
+          address: '',
+          dateOfBirth: '',
+          idType: 'birth-registration',
+          idNumber: '',
+          profilePhotoDataUrl: '',
+          idDocumentPhotoDataUrl: '',
+        })
+      }
+
+      if (registrationSnap.exists()) {
+        const registrationData = registrationSnap.data() as { items?: CompetitionRegistration[] }
+        setRegistrations(registrationData.items ?? [])
+      } else {
+        setRegistrations([])
+      }
     })
 
     return () => unsubscribe()
@@ -184,12 +183,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     const firebaseAuth = getFirebaseAuth()
     setUser(null)
+    setProfile(null)
+    setRegistrations([])
     if (firebaseAuth) {
       await firebaseSignOut(firebaseAuth)
     }
   }
 
-  const updateProfile = (nextProfile: UserProfile) => {
+  const updateProfile = async (nextProfile: UserProfile) => {
     setProfile(nextProfile)
     setUser((current) => {
       if (!current) return current
@@ -200,15 +201,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         avatarDataUrl: nextProfile.profilePhotoDataUrl || current.avatarDataUrl,
       }
     })
+
+    if (!user) return
+
+    const db = getFirestoreDb()
+    if (!db) return
+
+    await setDoc(
+      doc(db, 'profiles', user.id),
+      {
+        ...nextProfile,
+        updatedAt: Date.now(),
+      },
+      { merge: true }
+    )
   }
 
-  const addRegistration = (registration: CompetitionRegistration) => {
-    setRegistrations((current) => {
-      if (current.some((entry) => entry.competitionId === registration.competitionId)) {
-        return current
-      }
-      return [registration, ...current]
-    })
+  const addRegistration = async (registration: CompetitionRegistration) => {
+    if (!user) return
+
+    const db = getFirestoreDb()
+    if (!db) {
+      setRegistrations((current) => {
+        if (current.some((entry) => entry.competitionId === registration.competitionId)) return current
+        return [registration, ...current]
+      })
+      return
+    }
+
+    const registrationRef = doc(db, 'userRegistrations', user.id)
+    const registrationSnap = await getDoc(registrationRef)
+    const currentItems = registrationSnap.exists()
+      ? ((registrationSnap.data() as { items?: CompetitionRegistration[] }).items ?? [])
+      : []
+
+    if (currentItems.some((entry) => entry.competitionId === registration.competitionId)) {
+      setRegistrations(currentItems)
+      return
+    }
+
+    const nextItems = [registration, ...currentItems]
+
+    await setDoc(
+      registrationRef,
+      {
+        items: nextItems,
+        updatedAt: Date.now(),
+      },
+      { merge: true }
+    )
+
+    setRegistrations(nextItems)
   }
 
   const isProfileComplete = useMemo(() => {

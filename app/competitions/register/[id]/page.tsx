@@ -26,6 +26,8 @@ export default function CompetitionRegisterPage() {
     note: '',
   })
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const alreadyRegistered = useMemo(
     () => isRegisteredForCompetition(competitionId),
@@ -113,19 +115,28 @@ export default function CompetitionRegisterPage() {
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    addRegistration({
-      competitionId: competition.id,
-      competitionName: competition.name,
-      competitionDate: competition.date,
-      teamName: form.teamName,
-      instituteName: form.instituteName,
-      emergencyContact: form.emergencyContact,
-      note: form.note,
-      submittedAt: new Date().toISOString(),
-    })
-    setSubmitted(true)
+    setSubmitError('')
+    setIsSubmitting(true)
+
+    try {
+      await addRegistration({
+        competitionId: competition.id,
+        competitionName: competition.name,
+        competitionDate: competition.date,
+        teamName: form.teamName,
+        instituteName: form.instituteName,
+        emergencyContact: form.emergencyContact,
+        note: form.note,
+        submittedAt: new Date().toISOString(),
+      })
+      setSubmitted(true)
+    } catch {
+      setSubmitError('Could not submit registration. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -157,13 +168,15 @@ export default function CompetitionRegisterPage() {
           </div>
 
           <div className="flex items-center gap-3 pt-2">
-            <button type="submit" className="px-6 py-3 rounded-full bg-accent text-white font-semibold hover:bg-accent/90 transition-colors">
-              Submit Registration
+            <button type="submit" disabled={isSubmitting} className="px-6 py-3 rounded-full bg-accent text-white font-semibold hover:bg-accent/90 transition-colors disabled:opacity-70">
+              {isSubmitting ? 'Submitting...' : 'Submit Registration'}
             </button>
             <Link href="/competitions" className="px-6 py-3 rounded-full border border-[#e8cfc9] text-gray-700 font-semibold hover:bg-[#f8dfda] transition-colors">
               Cancel
             </Link>
           </div>
+
+          {submitError && <p className="text-sm text-red-700">{submitError}</p>}
         </form>
       </div>
     </div>
