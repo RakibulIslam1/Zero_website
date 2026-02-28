@@ -1,7 +1,14 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { signOut as nextAuthSignOut, useSession } from 'next-auth/react'
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  updateProfile as updateFirebaseProfile,
+} from 'firebase/auth'
+import { getFirebaseAuth } from '../lib/firebase'
 
 type IdType = 'birth-registration' | 'passport'
 
@@ -40,10 +47,9 @@ interface AuthContextType {
   user: AuthUser | null
   profile: UserProfile | null
   registrations: CompetitionRegistration[]
-  signInWithEmail: (email: string) => void
-  signUpWithEmail: (fullName: string, email: string) => void
-  signInWithGoogle: () => void
-  signOut: () => void
+  signInWithEmail: (email: string, password: string) => Promise<void>
+  signUpWithEmail: (fullName: string, email: string, password: string) => Promise<void>
+  signOut: () => Promise<void>
   updateProfile: (profile: UserProfile) => void
   addRegistration: (registration: CompetitionRegistration) => void
   isProfileComplete: boolean
@@ -59,7 +65,6 @@ function makeId() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [registrations, setRegistrations] = useState<CompetitionRegistration[]>([])
@@ -94,84 +99,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, profile, registrations])
 
   useEffect(() => {
-    if (status === 'loading') return
+    const firebaseAuth = getFirebaseAuth()
+    if (!firebaseAuth) return
 
-    if (!session?.user?.email) {
-      return
-    }
-
-    const googleUser: AuthUser = {
-      id: session.user.email,
-      fullName: session.user.name || session.user.email.split('@')[0],
-      email: session.user.email,
-      avatarDataUrl: session.user.image || undefined,
-      provider: 'google',
-    }
-
-    setUser((current) => {
-      if (!current) return googleUser
-      if (current.email !== googleUser.email || current.provider !== 'google') {
-        return { ...googleUser, avatarDataUrl: current.avatarDataUrl || googleUser.avatarDataUrl }
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
+      if (!firebaseUser?.email) {
+        setUser(null)
+        return
       }
-      return { ...current, ...googleUser, avatarDataUrl: current.avatarDataUrl || googleUser.avatarDataUrl }
-    })
 
-    setProfile((current) => {
-      if (!current) {
-        return {
-          fullName: googleUser.fullName,
-          email: googleUser.email,
-          phone: '',
-          address: '',
-          dateOfBirth: '',
-          idType: 'birth-registration',
-          idNumber: '',
-          profilePhotoDataUrl: '',
-          idDocumentPhotoDataUrl: '',
+      const syncedUser: AuthUser = {
+        id: firebaseUser.uid,
+        fullName: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+        email: firebaseUser.email,
+        avatarDataUrl: firebaseUser.photoURL || undefined,
+        provider: 'email',
+      }
+
+      setUser(syncedUser)
+
+      setProfile((current) => {
+        if (!current || current.email !== firebaseUser.email) {
+          return {
+            fullName: syncedUser.fullName,
+            email: syncedUser.email,
+            phone: '',
+            address: '',
+            dateOfBirth: '',
+            idType: 'birth-registration',
+            idNumber: '',
+            profilePhotoDataUrl: '',
+            idDocumentPhotoDataUrl: '',
+          }
         }
-      }
 
-      if (current.email === googleUser.email) {
         return {
           ...current,
-          fullName: current.fullName || googleUser.fullName,
-          email: googleUser.email,
+          fullName: current.fullName || syncedUser.fullName,
+          email: syncedUser.email,
         }
-      }
-
-      return {
-        fullName: googleUser.fullName,
-        email: googleUser.email,
-        phone: '',
-        address: '',
-        dateOfBirth: '',
-        idType: 'birth-registration',
-        idNumber: '',
-        profilePhotoDataUrl: '',
-        idDocumentPhotoDataUrl: '',
-      }
+      })
     })
-  }, [session, status])
 
-  const signInWithEmail = (email: string) => {
-    setUser((current) => ({
-      id: current?.id ?? makeId(),
-      fullName: current?.fullName ?? email.split('@')[0],
-      email,
-      avatarDataUrl: current?.avatarDataUrl,
-      provider: 'email',
-    }))
+    return () => unsubscribe()
+  }, [])
+
+  const signInWithEmail = async (email: string, password: string) => {
+    const firebaseAuth = getFirebaseAuth()
+    if (!firebaseAuth) throw new Error('Firebase is not configured')
+
+    await signInWithEmailAndPassword(firebaseAuth, email, password)
   }
 
-  const signUpWithEmail = (fullName: string, email: string) => {
-    const createdUser: AuthUser = {
-      id: makeId(),
-      fullName,
-      email,
-      provider: 'email',
+  const signUpWithEmail = async (fullName: string, email: string, password: string) => {
+    const firebaseAuth = getFirebaseAuth()
+    if (!firebaseAuth) throw new Error('Firebase is not configured')
+
+    const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password)
+
+    if (firebaseAuth.currentUser) {
+      await updateFirebaseProfile(firebaseAuth.currentUser, { displayName: fullName })
     }
 
-    setUser(createdUser)
     setProfile((prev) => ({
       fullName,
       email,
@@ -183,13 +172,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profilePhotoDataUrl: prev?.profilePhotoDataUrl ?? '',
       idDocumentPhotoDataUrl: prev?.idDocumentPhotoDataUrl ?? '',
     }))
+    setUser({
+      id: credential.user.uid,
+      fullName,
+      email,
+      avatarDataUrl: credential.user.photoURL || undefined,
+      provider: 'email',
+    })
   }
 
-  const signInWithGoogle = () => undefined
-
-  const signOut = () => {
+  const signOut = async () => {
+    const firebaseAuth = getFirebaseAuth()
     setUser(null)
-    nextAuthSignOut({ redirect: false })
+    if (firebaseAuth) {
+      await firebaseSignOut(firebaseAuth)
+    }
   }
 
   const updateProfile = (nextProfile: UserProfile) => {
@@ -242,7 +239,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         registrations,
         signInWithEmail,
         signUpWithEmail,
-        signInWithGoogle,
         signOut,
         updateProfile,
         addRegistration,

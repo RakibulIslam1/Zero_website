@@ -5,7 +5,6 @@ import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import BackgroundElements from '@/components/BackgroundElements'
 import { AuthProvider } from '@/components/AuthProvider'
-import { SessionProvider } from '@/components/SessionProvider'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -28,17 +27,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${poppins.className} font-sans bg-[#FAEAE6] text-primary transition-colors duration-300 overflow-x-hidden`}>
-        <SessionProvider>
-          <AuthProvider>
-            <BackgroundElements />
+        <AuthProvider>
+          <BackgroundElements />
 
-            <div className="relative z-10">
-              <Navbar />
-              <main>{children}</main>
-              <Footer />
-            </div>
-          </AuthProvider>
-        </SessionProvider>
+          <div className="relative z-10">
+            <Navbar />
+            <main>{children}</main>
+            <Footer />
+          </div>
+        </AuthProvider>
       </body>
     </html>
   )

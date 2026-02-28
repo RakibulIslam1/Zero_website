@@ -1,6 +1,6 @@
 # ZERO Website
 
-A modern olympiad and competitions website for **Zero Competitions** built with Next.js 14 (App Router), TypeScript, Tailwind CSS, Framer Motion, and NextAuth.
+A modern olympiad and competitions website for **Zero Competitions** built with Next.js 14 (App Router), TypeScript, Tailwind CSS, Framer Motion, and Firebase Authentication.
 
 ## Tech Stack
 
@@ -9,7 +9,7 @@ A modern olympiad and competitions website for **Zero Competitions** built with 
 - **Tailwind CSS**
 - **Framer Motion** for animations
 - **Lucide React** for icons
-- **NextAuth** for real Google OAuth sign-in
+- **Firebase Authentication** for real email/password auth
 
 ## Pages
 
@@ -17,7 +17,7 @@ A modern olympiad and competitions website for **Zero Competitions** built with 
 - `/about` — About ZERO (Story, Mission, Team, Values)
 - `/competitions` — Competitions listing with filter tabs
 - `/contact` — Contact form and company info
-- `/login` — Login page with social sign-in UI
+- `/login` — Login page with real email/password sign-up and sign-in
 - `/profile` — User profile (required identity and address data)
 - `/competitions/register/[id]` — Logged-in competition registration form
 
@@ -44,16 +44,12 @@ cp .env.example .env.local
 
 Set these values:
 
-- `NEXTAUTH_URL` (local: `http://localhost:3000`, production: your real domain)
-- `NEXTAUTH_SECRET` (a long random string)
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-
-Generate a secret quickly:
-
-```bash
-npx auth secret
-```
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
 
 ### Development
 
@@ -70,34 +66,34 @@ npm run build
 npm start
 ```
 
-## Google OAuth Setup
+## Firebase Email Auth Setup
 
-1. Open Google Cloud Console and create/select a project.
-2. Configure OAuth consent screen.
-3. Create OAuth 2.0 Client ID (Web application).
-4. Add Authorized redirect URI:
-	- Local: `http://localhost:3000/api/auth/callback/google`
-	- Production: `https://YOUR_DOMAIN/api/auth/callback/google`
-5. Copy client ID/secret into `.env.local` (and Vercel env vars for production).
+1. Open Firebase Console and create a project.
+2. Go to Project Settings → Your Apps → add a Web app.
+3. Copy Firebase config values into `.env.local`.
+4. Go to Authentication → Sign-in method.
+5. Enable **Email/Password** provider.
+6. (Optional) In Authentication → Settings → Authorized domains, add your Vercel domain.
 
 ## Deploy / Host (Vercel)
 
 1. Push this repo to GitHub.
 2. Import project in Vercel.
 3. Set environment variables in Vercel:
-	- `NEXTAUTH_URL=https://YOUR_DOMAIN`
-	- `NEXTAUTH_SECRET`
-	- `GOOGLE_CLIENT_ID`
-	- `GOOGLE_CLIENT_SECRET`
+	- `NEXT_PUBLIC_FIREBASE_API_KEY`
+	- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+	- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+	- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+	- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+	- `NEXT_PUBLIC_FIREBASE_APP_ID`
 4. Redeploy.
-5. Add the Vercel callback URL to Google OAuth redirect URIs.
 
 ## Features
 
 - 📱 Fully responsive (mobile-first)
 - ✨ Smooth animations with Framer Motion
 - 🎨 Custom branding (Zero Competitions theme colors)
-- 🔐 Real Google OAuth sign-in
+- 🔐 Real Firebase email/password authentication
 - 👤 User profile with identity document fields
 - 🏆 Competition registration flow tied to user profile
 - ♿ Accessible semantic HTML
