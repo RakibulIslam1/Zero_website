@@ -208,6 +208,7 @@ export default function AdminPage() {
         ) : (
           <section className="space-y-4">
             {rows.map((profile) => {
+              const isBuiltInAdminProfile = profile.email?.toLowerCase() === ADMIN_EMAIL
               const status = profile.verificationStatus || 'pending'
               const badgeClass =
                 status === 'verified'
@@ -258,33 +259,39 @@ export default function AdminPage() {
                     <p className="text-sm text-red-700 mt-4">Cancellation reason: {profile.verificationReason}</p>
                   )}
 
-                  <div className="flex flex-wrap gap-3 mt-5">
-                    <button
-                      type="button"
-                      disabled={activeUid === profile.uid}
-                      onClick={() => updateStatus(profile, 'verified')}
-                      className="px-4 py-2.5 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
-                    >
-                      {activeUid === profile.uid ? 'Updating…' : 'Verify'}
-                    </button>
-                  </div>
+                  {isBuiltInAdminProfile ? (
+                    <p className="text-sm text-green-700 mt-5 font-medium">This account is permanently verified.</p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-3 mt-5">
+                        <button
+                          type="button"
+                          disabled={activeUid === profile.uid}
+                          onClick={() => updateStatus(profile, 'verified')}
+                          className="px-4 py-2.5 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
+                        >
+                          {activeUid === profile.uid ? 'Updating…' : 'Verify'}
+                        </button>
+                      </div>
 
-                  <form onSubmit={(event) => void handleCancel(event, profile)} className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
-                    <input
-                      type="text"
-                      value={cancelReasons[profile.uid] || ''}
-                      onChange={(event) => setCancelReasons((prev) => ({ ...prev, [profile.uid]: event.target.value }))}
-                      placeholder="Reason for cancellation"
-                      className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
-                    />
-                    <button
-                      type="submit"
-                      disabled={activeUid === profile.uid}
-                      className="px-4 py-2.5 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
-                    >
-                      {activeUid === profile.uid ? 'Updating…' : 'Cancel Verification'}
-                    </button>
-                  </form>
+                      <form onSubmit={(event) => void handleCancel(event, profile)} className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+                        <input
+                          type="text"
+                          value={cancelReasons[profile.uid] || ''}
+                          onChange={(event) => setCancelReasons((prev) => ({ ...prev, [profile.uid]: event.target.value }))}
+                          placeholder="Reason for cancellation"
+                          className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                        />
+                        <button
+                          type="submit"
+                          disabled={activeUid === profile.uid}
+                          className="px-4 py-2.5 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                        >
+                          {activeUid === profile.uid ? 'Updating…' : 'Cancel Verification'}
+                        </button>
+                      </form>
+                    </>
+                  )}
                 </article>
               )
             })}

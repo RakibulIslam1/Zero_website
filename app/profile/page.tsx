@@ -69,11 +69,6 @@ export default function ProfilePage() {
     }))
   }, [profile, user])
 
-  const heading = useMemo(() => {
-    if (isProfileComplete) return 'Your Profile'
-    return 'Complete Your Profile'
-  }, [isProfileComplete])
-
   const missingItems = useMemo(() => {
     const missing: string[] = []
     if (!form.phone) missing.push('Phone number')
@@ -84,6 +79,16 @@ export default function ProfilePage() {
     if (!form.idDocumentPhotoDataUrl) missing.push('ID document photo')
     return missing
   }, [form])
+
+  const heading = useMemo(() => {
+    if (isProfileComplete) return 'Your Profile'
+    return 'Complete Your Profile'
+  }, [isProfileComplete])
+
+  const profileStatusLine = useMemo(() => {
+    if (isProfileComplete) return 'Profile complete.'
+    return `Profile information remaining: ${missingItems.length} item${missingItems.length === 1 ? '' : 's'}.`
+  }, [isProfileComplete, missingItems.length])
 
   const registeredCompetitionDetails = useMemo(() => {
     return registrations
@@ -153,11 +158,26 @@ export default function ProfilePage() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         <aside className="lg:col-span-4">
           <div className="bg-white rounded-3xl p-6 border border-[#e8cfc9] shadow-sm">
-            <div className="w-48 h-48 rounded-full overflow-hidden bg-[#f4d8d2] flex items-center justify-center text-accent font-semibold text-5xl mx-auto border-4 border-[#f1d3cc]">
+            <div className="w-56 h-56 rounded-full overflow-hidden bg-[#f4d8d2] flex items-center justify-center text-accent font-semibold text-5xl mx-auto border-4 border-[#f1d3cc]">
               {(form.profilePhotoDataUrl || user.avatarDataUrl) ? (
-                <Image src={form.profilePhotoDataUrl || user.avatarDataUrl || ''} alt={user.fullName} width={192} height={192} className="w-full h-full object-cover" />
+                <Image src={form.profilePhotoDataUrl || user.avatarDataUrl || ''} alt={user.fullName} width={224} height={224} className="w-full h-full object-cover" />
               ) : (
                 user.fullName.slice(0, 1).toUpperCase()
+              )}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Registered Competitions</h3>
+              {registeredCompetitionDetails.length === 0 ? (
+                <p className="text-sm text-gray-600">No competition registrations yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {registeredCompetitionDetails.map((competition) => (
+                    <li key={competition?.id} className="text-sm text-gray-700">
+                      {competition?.name}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
 
@@ -168,22 +188,6 @@ export default function ProfilePage() {
             >
               {editMode ? 'Close Edit Profile' : 'Edit Profile'}
             </button>
-
-            <p className="mt-4 text-sm font-medium text-gray-700">
-              Profile status: <span className={isProfileComplete ? 'text-green-700' : 'text-accent'}>{isProfileComplete ? 'Complete' : 'Incomplete'}</span>
-            </p>
-
-            {missingItems.length > 0 && (
-              <div className="mt-5 rounded-2xl border border-[#f1c8c0] bg-[#fff5f2] p-4">
-                <p className="text-sm font-semibold text-accent mb-2">Missing documents/info</p>
-                <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                  {missingItems.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-                <p className="text-xs text-gray-600 mt-2">Use Edit Profile to upload/update missing documentation.</p>
-              </div>
-            )}
 
             <button
               type="button"
@@ -203,6 +207,21 @@ export default function ProfilePage() {
             <h1 className="text-3xl font-bold text-gray-900">{form.fullName || user.fullName}</h1>
             <p className="text-gray-600 mt-1">{form.email || user.email}</p>
             <p className="text-sm text-gray-500 mt-3">{heading}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <p className={`text-sm font-medium ${isProfileComplete ? 'text-green-700' : 'text-accent'}`}>{profileStatusLine}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditMode(true)
+                  setTimeout(() => {
+                    document.getElementById('edit-profile')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }, 80)
+                }}
+                className="inline-flex px-4 py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent/90 transition-colors"
+              >
+                Update Information
+              </button>
+            </div>
             <p className="text-sm mt-2 font-medium">
               Verification: {' '}
               <span className={
@@ -251,7 +270,7 @@ export default function ProfilePage() {
           </div>
 
           {editMode && (
-            <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+            <div id="edit-profile" className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
               <h2 className="text-2xl font-bold text-gray-900 mb-5">Edit Profile Information</h2>
               <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
@@ -314,29 +333,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
-            <h2 className="text-2xl font-bold text-gray-900 mb-5">Registered Competitions</h2>
-            {registeredCompetitionDetails.length === 0 ? (
-              <p className="text-sm text-gray-600">No competition registrations yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {registeredCompetitionDetails.map((competition) => (
-                  <div key={competition?.id} className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="text-lg font-bold text-gray-900">{competition?.name}</h3>
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-accent/15 text-accent capitalize">
-                        {competition?.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">{competition?.date}</p>
-                    <p className="text-sm text-gray-700 mt-3 line-clamp-3">{competition?.description}</p>
-                    <p className="text-sm font-semibold text-accent mt-3">{competition?.prize}</p>
-                    <p className="text-xs text-gray-500 mt-3">Registered on {new Date(competition?.submittedAt || '').toLocaleString()}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </section>
       </div>
     </div>

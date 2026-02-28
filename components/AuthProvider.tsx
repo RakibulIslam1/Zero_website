@@ -11,6 +11,16 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { getFirebaseAuth, getFirestoreDb } from '../lib/firebase'
 
+const ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
+
+function isAdminEmail(email: string) {
+  return email.trim().toLowerCase() === ADMIN_EMAIL
+}
+
+function defaultVerificationByEmail(email: string): UserProfile['verificationStatus'] {
+  return isAdminEmail(email) ? 'verified' : 'pending'
+}
+
 type IdType = 'birth-registration' | 'passport'
 
 interface AuthUser {
@@ -97,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const db = getFirestoreDb()
       if (!db) {
+        const defaultVerification = defaultVerificationByEmail(syncedUser.email)
         setProfile({
           fullName: syncedUser.fullName,
           email: syncedUser.email,
@@ -107,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           idNumber: '',
           profilePhotoDataUrl: '',
           idDocumentPhotoDataUrl: '',
-          verificationStatus: 'pending',
+          verificationStatus: defaultVerification,
           verificationReason: '',
           verificationUpdatedAt: Date.now(),
         })
@@ -126,6 +137,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (profileSnap.exists()) {
         const profileData = profileSnap.data() as Partial<UserProfile>
+        const shouldForceVerified = isAdminEmail(syncedUser.email)
+        const resolvedVerificationStatus = shouldForceVerified
+          ? 'verified'
+          : (profileData.verificationStatus || 'pending')
+        const resolvedVerificationReason = shouldForceVerified
+          ? ''
+          : (profileData.verificationReason || '')
+        const resolvedVerificationUpdatedAt = shouldForceVerified
+          ? Date.now()
+          : (profileData.verificationUpdatedAt || Date.now())
+
         setProfile({
           fullName: profileData.fullName || syncedUser.fullName,
           email: syncedUser.email,
@@ -136,11 +158,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           idNumber: profileData.idNumber || '',
           profilePhotoDataUrl: profileData.profilePhotoDataUrl || '',
           idDocumentPhotoDataUrl: profileData.idDocumentPhotoDataUrl || '',
-          verificationStatus: profileData.verificationStatus || 'pending',
-          verificationReason: profileData.verificationReason || '',
-          verificationUpdatedAt: profileData.verificationUpdatedAt || Date.now(),
+          verificationStatus: resolvedVerificationStatus,
+          verificationReason: resolvedVerificationReason,
+          verificationUpdatedAt: resolvedVerificationUpdatedAt,
         })
+
+        if (shouldForceVerified && profileData.verificationStatus !== 'verified') {
+          await setDoc(
+            profileRef,
+            {
+              verificationStatus: 'verified',
+              verificationReason: '',
+              verificationUpdatedAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+            { merge: true },
+          )
+        }
       } else {
+        const defaultVerification = defaultVerificationByEmail(syncedUser.email)
         setProfile({
           fullName: syncedUser.fullName,
           email: syncedUser.email,
@@ -151,10 +187,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           idNumber: '',
           profilePhotoDataUrl: '',
           idDocumentPhotoDataUrl: '',
-          verificationStatus: 'pending',
+          verificationStatus: defaultVerification,
           verificationReason: '',
           verificationUpdatedAt: Date.now(),
         })
+
+        if (defaultVerification === 'verified') {
+          await setDoc(
+            profileRef,
+            {
+              fullName: syncedUser.fullName,
+              email: syncedUser.email,
+              verificationStatus: 'verified',
+              verificationReason: '',
+              verificationUpdatedAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+            { merge: true },
+          )
+        }
       }
 
       if (registrationSnap.exists()) {
@@ -187,6 +238,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await updateFirebaseProfile(firebaseAuth.currentUser, { displayName: fullName })
     }
 
+    const defaultVerification = defaultVerificationByEmail(email)
+
     setProfile((prev) => ({
       fullName,
       email,
@@ -197,7 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       idNumber: prev?.idNumber ?? '',
       profilePhotoDataUrl: prev?.profilePhotoDataUrl ?? '',
       idDocumentPhotoDataUrl: prev?.idDocumentPhotoDataUrl ?? '',
-      verificationStatus: prev?.verificationStatus ?? 'pending',
+      verificationStatus: prev?.verificationStatus ?? defaultVerification,
       verificationReason: prev?.verificationReason ?? '',
       verificationUpdatedAt: prev?.verificationUpdatedAt ?? Date.now(),
     }))
@@ -221,14 +274,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateProfile = async (nextProfile: UserProfile) => {
-    setProfile(nextProfile)
+    const normalizedProfile = isAdminEmail(nextProfile.email)
+      ? {
+          ...nextProfile,
+          verificationStatus: 'verified' as const,
+          verificationReason: '',
+          verificationUpdatedAt: Date.now(),
+        }
+      : nextProfile
+
+    setProfile(normalizedProfile)
     setUser((current) => {
       if (!current) return current
       return {
         ...current,
-        fullName: nextProfile.fullName,
-        email: nextProfile.email,
-        avatarDataUrl: nextProfile.profilePhotoDataUrl || current.avatarDataUrl,
+        fullName: normalizedProfile.fullName,
+        email: normalizedProfile.email,
+        avatarDataUrl: normalizedProfile.profilePhotoDataUrl || current.avatarDataUrl,
       }
     })
 
@@ -245,7 +307,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await setDoc(
         doc(db, 'profiles', user.id),
         {
-          ...nextProfile,
+          ...normalizedProfile,
           updatedAt: Date.now(),
         },
         { merge: true }
