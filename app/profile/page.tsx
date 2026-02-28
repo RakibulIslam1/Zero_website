@@ -118,8 +118,9 @@ export default function ProfilePage() {
       await updateProfile(form)
       setSaveMessage('Profile saved successfully.')
       setEditMode(false)
-    } catch {
-      setSaveError('Could not save profile. Please try again.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not save profile. Please try again.'
+      setSaveError(message)
     } finally {
       setTimeout(() => setSaving(false), 350)
     }

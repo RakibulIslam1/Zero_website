@@ -132,8 +132,9 @@ export default function CompetitionRegisterPage() {
         submittedAt: new Date().toISOString(),
       })
       setSubmitted(true)
-    } catch {
-      setSubmitError('Could not submit registration. Please try again.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not submit registration. Please try again.'
+      setSubmitError(message)
     } finally {
       setIsSubmitting(false)
     }

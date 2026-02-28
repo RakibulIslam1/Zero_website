@@ -202,31 +202,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    if (!user) return
-
-    const db = getFirestoreDb()
-    if (!db) return
-
-    await setDoc(
-      doc(db, 'profiles', user.id),
-      {
-        ...nextProfile,
-        updatedAt: Date.now(),
-      },
-      { merge: true }
-    )
-  }
-
-  const addRegistration = async (registration: CompetitionRegistration) => {
-    if (!user) return
+    if (!user) {
+      throw new Error('No authenticated user found.')
+    }
 
     const db = getFirestoreDb()
     if (!db) {
-      setRegistrations((current) => {
-        if (current.some((entry) => entry.competitionId === registration.competitionId)) return current
-        return [registration, ...current]
-      })
-      return
+      throw new Error('Firestore is not configured. Check Firebase environment variables on Vercel.')
+    }
+
+    try {
+      await setDoc(
+        doc(db, 'profiles', user.id),
+        {
+          ...nextProfile,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to write profile to Firestore.'
+      throw new Error(message)
+    }
+  }
+
+  const addRegistration = async (registration: CompetitionRegistration) => {
+    if (!user) {
+      throw new Error('No authenticated user found.')
+    }
+
+    const db = getFirestoreDb()
+    if (!db) {
+      throw new Error('Firestore is not configured. Check Firebase environment variables on Vercel.')
     }
 
     const registrationRef = doc(db, 'userRegistrations', user.id)
