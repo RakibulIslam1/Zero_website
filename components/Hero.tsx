@@ -2,10 +2,11 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { Sparkles } from 'lucide-react'
 
 export default function Hero() {
   return (
-    <section className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-blue-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 pt-16">
+    <section className="min-h-screen flex items-center justify-center relative overflow-hidden bg-transparent pt-16">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
@@ -18,29 +19,19 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <span className="inline-block px-4 py-2 bg-accent/10 text-accent rounded-full text-sm font-medium mb-6">
-            Welcome to the Future
-          </span>
           <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
-            Welcome to{' '}
-            <span className="text-accent">ZERO</span>
+            Welcome to <span className="text-accent">Zero Competitions</span>
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed">
-            We are a cutting-edge company at the intersection of technology and innovation,
-            building tomorrow's solutions today.
+            Zero limits, infinite opportunities
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex justify-center">
             <Link
-              href="/contact"
-              className="px-8 py-4 bg-accent text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors duration-200 text-lg"
+              href="/login"
+              className="inline-flex items-center gap-2 px-9 py-4 bg-accent text-white rounded-full font-semibold shadow-[0_10px_28px_rgba(201,94,94,0.35)] hover:scale-[1.03] hover:bg-accent/90 transition-all duration-200 text-lg"
             >
-              Get Started
-            </Link>
-            <Link
-              href="/about"
-              className="px-8 py-4 bg-transparent border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-semibold hover:border-accent hover:text-accent transition-colors duration-200 text-lg"
-            >
-              Learn More
+              <Sparkles size={20} />
+              Sign Up Now
             </Link>
           </div>
         </motion.div>

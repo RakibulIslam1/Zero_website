@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 export default function CTA() {
   return (
-    <section className="py-24 bg-gray-50 dark:bg-gray-800">
+    <section className="py-24 bg-transparent">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -23,7 +23,7 @@ export default function CTA() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/contact"
-              className="px-8 py-4 bg-accent text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors duration-200 text-lg"
+              className="px-8 py-4 bg-accent text-white rounded-lg font-semibold hover:bg-accent/90 transition-colors duration-200 text-lg"
             >
               Contact Us Today
             </Link>

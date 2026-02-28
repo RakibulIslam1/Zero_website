@@ -11,11 +11,11 @@ const config: Config = {
     extend: {
       colors: {
         primary: '#0A0A0A',
-        accent: '#3B82F6',
+        accent: '#C95E5E',
         secondary: '#F5F5F5',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Poppins', 'sans-serif'],
       },
     },
   },

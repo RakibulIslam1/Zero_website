@@ -72,7 +72,7 @@ export default function Stats() {
               <div className="text-4xl md:text-5xl font-bold text-white mb-2">
                 <Counter value={stat.value} suffix={stat.suffix} />
               </div>
-              <div className="text-blue-100 font-medium">{stat.label}</div>
+              <div className="text-red-100 font-medium">{stat.label}</div>
             </motion.div>
           ))}
         </div>

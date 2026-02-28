@@ -24,7 +24,7 @@ export default function AboutPage() {
   return (
     <div className="pt-16">
       {/* Hero */}
-      <section className="py-24 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+      <section className="py-24 bg-transparent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -47,7 +47,7 @@ export default function AboutPage() {
       </section>
 
       {/* Story */}
-      <section className="py-24 bg-white dark:bg-gray-900">
+      <section className="py-24 bg-transparent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <motion.div
@@ -74,7 +74,7 @@ export default function AboutPage() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.7 }}
-              className="bg-gradient-to-br from-accent/10 to-blue-200 dark:from-accent/20 dark:to-gray-700 rounded-3xl p-12 text-center"
+              className="bg-gradient-to-br from-accent/10 to-red-200 dark:from-accent/20 dark:to-gray-700 rounded-3xl p-12 text-center"
             >
               <div className="text-6xl font-bold text-accent mb-2">{new Date().getFullYear() - 2014}+</div>
               <div className="text-gray-600 dark:text-gray-400 text-lg">Years of Excellence</div>
@@ -94,7 +94,7 @@ export default function AboutPage() {
       </section>
 
       {/* Mission & Vision */}
-      <section className="py-24 bg-gray-50 dark:bg-gray-800">
+      <section className="py-24 bg-transparent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <motion.div
@@ -135,7 +135,7 @@ export default function AboutPage() {
       </section>
 
       {/* Values */}
-      <section className="py-24 bg-white dark:bg-gray-900">
+      <section className="py-24 bg-transparent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Our Core Values</h2>
@@ -162,7 +162,7 @@ export default function AboutPage() {
       </section>
 
       {/* Team */}
-      <section className="py-24 bg-gray-50 dark:bg-gray-800">
+      <section className="py-24 bg-transparent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Meet Our Team</h2>
@@ -213,7 +213,7 @@ export default function AboutPage() {
                 className="bg-white/10 rounded-2xl p-8"
               >
                 <h3 className="text-xl font-bold mb-3">{item.title}</h3>
-                <p className="text-blue-100">{item.description}</p>
+                <p className="text-red-100">{item.description}</p>
               </motion.div>
             ))}
           </div>
