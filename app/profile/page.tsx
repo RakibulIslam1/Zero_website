@@ -26,6 +26,23 @@ const emptyProfile: UserProfile = {
   idNumber: '',
   profilePhotoDataUrl: '',
   idDocumentPhotoDataUrl: '',
+  verificationStatus: 'pending',
+  verificationReason: '',
+  verificationUpdatedAt: 0,
+}
+
+function toFriendlyError(error: unknown) {
+  const message = error instanceof Error ? error.message : ''
+
+  if (message.includes('permission') || message.includes('Missing or insufficient permissions')) {
+    return 'Permission denied while saving. Please check Firestore rules and login again.'
+  }
+
+  if (message.includes('Firestore is not configured')) {
+    return 'Database setup is incomplete. Please configure Firebase environment variables.'
+  }
+
+  return 'Could not save profile. Please try again.'
 }
 
 export default function ProfilePage() {
@@ -104,6 +121,12 @@ export default function ProfilePage() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    const maxSizeInBytes = 2 * 1024 * 1024
+    if (file.size > maxSizeInBytes) {
+      setSaveError('Image size is too big. Please upload an image within 2MB.')
+      return
+    }
+
     const dataUrl = await fileToDataUrl(file)
     setForm((prev) => ({ ...prev, [field]: dataUrl }))
   }
@@ -119,8 +142,7 @@ export default function ProfilePage() {
       setSaveMessage('Profile saved successfully.')
       setEditMode(false)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not save profile. Please try again.'
-      setSaveError(message)
+      setSaveError(toFriendlyError(error))
     } finally {
       setTimeout(() => setSaving(false), 350)
     }
@@ -131,9 +153,9 @@ export default function ProfilePage() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         <aside className="lg:col-span-4">
           <div className="bg-white rounded-3xl p-6 border border-[#e8cfc9] shadow-sm">
-            <div className="w-44 h-44 rounded-3xl overflow-hidden bg-[#f4d8d2] flex items-center justify-center text-accent font-semibold text-5xl mx-auto">
+            <div className="w-48 h-48 rounded-full overflow-hidden bg-[#f4d8d2] flex items-center justify-center text-accent font-semibold text-5xl mx-auto border-4 border-[#f1d3cc]">
               {(form.profilePhotoDataUrl || user.avatarDataUrl) ? (
-                <Image src={form.profilePhotoDataUrl || user.avatarDataUrl || ''} alt={user.fullName} width={176} height={176} className="w-full h-full object-cover" />
+                <Image src={form.profilePhotoDataUrl || user.avatarDataUrl || ''} alt={user.fullName} width={192} height={192} className="w-full h-full object-cover" />
               ) : (
                 user.fullName.slice(0, 1).toUpperCase()
               )}
@@ -142,20 +164,9 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => setEditMode((current) => !current)}
-              className="w-full mt-5 px-4 py-2.5 rounded-xl border border-[#e8cfc9] text-gray-700 font-medium hover:bg-[#f8dfda] transition-colors"
+              className="w-full mt-6 px-4 py-3 rounded-2xl border border-[#e8cfc9] text-gray-700 font-semibold hover:bg-[#f8dfda] transition-colors"
             >
               {editMode ? 'Close Edit Profile' : 'Edit Profile'}
-            </button>
-
-            <button
-              type="button"
-              onClick={async () => {
-                await signOut()
-                router.push('/')
-              }}
-              className="w-full mt-3 px-4 py-2.5 rounded-xl border border-[#e8cfc9] text-gray-700 font-medium hover:bg-[#f8dfda] transition-colors"
-            >
-              Sign Out
             </button>
 
             <p className="mt-4 text-sm font-medium text-gray-700">
@@ -173,14 +184,70 @@ export default function ProfilePage() {
                 <p className="text-xs text-gray-600 mt-2">Use Edit Profile to upload/update missing documentation.</p>
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={async () => {
+                await signOut()
+                router.push('/')
+              }}
+              className="w-full mt-6 px-4 py-3 rounded-2xl border border-[#e8cfc9] text-gray-700 font-semibold hover:bg-[#f8dfda] transition-colors"
+            >
+              Sign Out
+            </button>
           </div>
         </aside>
 
         <section className="lg:col-span-8 space-y-6">
-          <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+          <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm min-h-[192px] flex flex-col justify-center">
             <h1 className="text-3xl font-bold text-gray-900">{form.fullName || user.fullName}</h1>
             <p className="text-gray-600 mt-1">{form.email || user.email}</p>
             <p className="text-sm text-gray-500 mt-3">{heading}</p>
+            <p className="text-sm mt-2 font-medium">
+              Verification: {' '}
+              <span className={
+                form.verificationStatus === 'verified'
+                  ? 'text-green-700'
+                  : form.verificationStatus === 'cancelled'
+                    ? 'text-red-700'
+                    : 'text-accent'
+              }>
+                {form.verificationStatus === 'verified'
+                  ? 'Verified'
+                  : form.verificationStatus === 'cancelled'
+                    ? 'Cancelled'
+                    : 'Pending Review'}
+              </span>
+            </p>
+            {form.verificationStatus === 'cancelled' && form.verificationReason && (
+              <p className="text-sm text-red-700 mt-1">Reason: {form.verificationReason}</p>
+            )}
+          </div>
+
+          <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+            <h2 className="text-2xl font-bold text-gray-900 mb-5">Profile Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                <p className="text-gray-500">Phone</p>
+                <p className="text-gray-800 font-medium mt-1">{form.phone || 'Not provided'}</p>
+              </div>
+              <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                <p className="text-gray-500">Date of Birth</p>
+                <p className="text-gray-800 font-medium mt-1">{form.dateOfBirth || 'Not provided'}</p>
+              </div>
+              <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 md:col-span-2">
+                <p className="text-gray-500">Address</p>
+                <p className="text-gray-800 font-medium mt-1">{form.address || 'Not provided'}</p>
+              </div>
+              <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                <p className="text-gray-500">ID Type</p>
+                <p className="text-gray-800 font-medium mt-1">{form.idType === 'passport' ? 'Passport' : 'Birth Registration'}</p>
+              </div>
+              <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                <p className="text-gray-500">ID Number</p>
+                <p className="text-gray-800 font-medium mt-1">{form.idNumber || 'Not provided'}</p>
+              </div>
+            </div>
           </div>
 
           {editMode && (

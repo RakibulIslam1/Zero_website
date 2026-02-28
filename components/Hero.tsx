@@ -3,8 +3,11 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function Hero() {
+  const { user } = useAuth()
+
   return (
     <section className="min-h-screen flex items-center justify-center relative overflow-hidden bg-transparent pt-16">
       {/* Background decorative elements */}
@@ -27,11 +30,11 @@ export default function Hero() {
           </p>
           <div className="flex justify-center">
             <Link
-              href="/login"
+              href={user ? '#services-section' : '/login'}
               className="inline-flex items-center gap-2 px-9 py-4 bg-accent text-white rounded-full font-semibold shadow-[0_10px_28px_rgba(201,94,94,0.35)] hover:scale-[1.03] hover:bg-accent/90 transition-all duration-200 text-lg"
             >
               <Sparkles size={20} />
-              Sign Up Now
+              {user ? 'Explore Zero' : 'Sign Up Now'}
             </Link>
           </div>
         </motion.div>

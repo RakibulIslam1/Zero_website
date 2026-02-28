@@ -46,6 +46,12 @@ export default function Navbar() {
               </Link>
             ))}
 
+            {user?.email === 'rakibul.rir06@gmail.com' && (
+              <Link href="/admin" className="text-lg font-semibold text-gray-700 hover:text-accent transition-colors duration-200">
+                Admin
+              </Link>
+            )}
+
             {user ? (
               <div className="flex items-center gap-3">
                 <Link
@@ -111,6 +117,16 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
+
+              {user?.email === 'rakibul.rir06@gmail.com' && (
+                <Link
+                  href="/admin"
+                  className="block text-base font-semibold text-gray-700 hover:text-accent py-2"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Admin
+                </Link>
+              )}
 
               {user ? (
                 <>

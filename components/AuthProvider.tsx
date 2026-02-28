@@ -31,6 +31,9 @@ interface UserProfile {
   idNumber: string
   profilePhotoDataUrl: string
   idDocumentPhotoDataUrl: string
+  verificationStatus: 'pending' | 'verified' | 'cancelled'
+  verificationReason?: string
+  verificationUpdatedAt?: number
 }
 
 interface CompetitionRegistration {
@@ -46,6 +49,7 @@ interface CompetitionRegistration {
 
 interface AuthContextType {
   user: AuthUser | null
+  loading: boolean
   profile: UserProfile | null
   registrations: CompetitionRegistration[]
   signInWithEmail: (email: string, password: string) => Promise<void>
@@ -61,18 +65,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [registrations, setRegistrations] = useState<CompetitionRegistration[]>([])
 
   useEffect(() => {
     const firebaseAuth = getFirebaseAuth()
-    if (!firebaseAuth) return
+    if (!firebaseAuth) {
+      setLoading(false)
+      return
+    }
 
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser?.email) {
         setUser(null)
         setProfile(null)
         setRegistrations([])
+        setLoading(false)
         return
       }
 
@@ -98,8 +107,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           idNumber: '',
           profilePhotoDataUrl: '',
           idDocumentPhotoDataUrl: '',
+          verificationStatus: 'pending',
+          verificationReason: '',
+          verificationUpdatedAt: Date.now(),
         })
         setRegistrations([])
+        setLoading(false)
         return
       }
 
@@ -112,11 +125,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ])
 
       if (profileSnap.exists()) {
-        const profileData = profileSnap.data() as UserProfile
+        const profileData = profileSnap.data() as Partial<UserProfile>
         setProfile({
-          ...profileData,
           fullName: profileData.fullName || syncedUser.fullName,
           email: syncedUser.email,
+          phone: profileData.phone || '',
+          address: profileData.address || '',
+          dateOfBirth: profileData.dateOfBirth || '',
+          idType: profileData.idType || 'birth-registration',
+          idNumber: profileData.idNumber || '',
+          profilePhotoDataUrl: profileData.profilePhotoDataUrl || '',
+          idDocumentPhotoDataUrl: profileData.idDocumentPhotoDataUrl || '',
+          verificationStatus: profileData.verificationStatus || 'pending',
+          verificationReason: profileData.verificationReason || '',
+          verificationUpdatedAt: profileData.verificationUpdatedAt || Date.now(),
         })
       } else {
         setProfile({
@@ -129,6 +151,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           idNumber: '',
           profilePhotoDataUrl: '',
           idDocumentPhotoDataUrl: '',
+          verificationStatus: 'pending',
+          verificationReason: '',
+          verificationUpdatedAt: Date.now(),
         })
       }
 
@@ -138,6 +163,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setRegistrations([])
       }
+
+      setLoading(false)
     })
 
     return () => unsubscribe()
@@ -170,6 +197,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       idNumber: prev?.idNumber ?? '',
       profilePhotoDataUrl: prev?.profilePhotoDataUrl ?? '',
       idDocumentPhotoDataUrl: prev?.idDocumentPhotoDataUrl ?? '',
+      verificationStatus: prev?.verificationStatus ?? 'pending',
+      verificationReason: prev?.verificationReason ?? '',
+      verificationUpdatedAt: prev?.verificationUpdatedAt ?? Date.now(),
     }))
     setUser({
       id: credential.user.uid,
@@ -285,6 +315,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        loading,
         profile,
         registrations,
         signInWithEmail,
