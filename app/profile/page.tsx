@@ -20,6 +20,8 @@ const emptyProfile: UserProfile = {
   fullName: '',
   email: '',
   phone: '',
+  educationLevel: '',
+  instituteName: '',
   address: '',
   dateOfBirth: '',
   idType: 'birth-registration',
@@ -72,6 +74,8 @@ export default function ProfilePage() {
   const missingItems = useMemo(() => {
     const missing: string[] = []
     if (!form.phone) missing.push('Phone number')
+    if (!form.educationLevel) missing.push('Education level')
+    if (!form.instituteName) missing.push('Institute name')
     if (!form.address) missing.push('Address')
     if (!form.dateOfBirth) missing.push('Date of birth')
     if (!form.idNumber) missing.push('Birth registration / passport number')
@@ -251,6 +255,14 @@ export default function ProfilePage() {
                 <p className="text-gray-800 font-medium mt-1">{form.phone || 'Not provided'}</p>
               </div>
               <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                <p className="text-gray-500">Education Level</p>
+                <p className="text-gray-800 font-medium mt-1">{form.educationLevel || 'Not provided'}</p>
+              </div>
+              <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 md:col-span-2">
+                <p className="text-gray-500">Institute Name</p>
+                <p className="text-gray-800 font-medium mt-1">{form.instituteName || 'Not provided'}</p>
+              </div>
+              <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
                 <p className="text-gray-500">Date of Birth</p>
                 <p className="text-gray-800 font-medium mt-1">{form.dateOfBirth || 'Not provided'}</p>
               </div>
@@ -286,6 +298,16 @@ export default function ProfilePage() {
                 <div>
                   <label className="text-sm font-medium text-gray-700">Phone Number *</label>
                   <input name="phone" value={form.phone} onChange={handleChange} required className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent" />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Education Level *</label>
+                  <input name="educationLevel" value={form.educationLevel} onChange={handleChange} required className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent" />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-gray-700">Institute Name *</label>
+                  <input name="instituteName" value={form.instituteName} onChange={handleChange} required className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
 
                 <div>

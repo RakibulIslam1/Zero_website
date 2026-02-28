@@ -11,10 +11,11 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { getFirebaseAuth, getFirestoreDb } from '../lib/firebase'
 
-const ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
+const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
+const ADMIN_ROLES_DOC = 'roles'
 
 function isAdminEmail(email: string) {
-  return email.trim().toLowerCase() === ADMIN_EMAIL
+  return email.trim().toLowerCase() === SUPER_ADMIN_EMAIL
 }
 
 function defaultVerificationByEmail(email: string): UserProfile['verificationStatus'] {
@@ -35,6 +36,8 @@ interface UserProfile {
   fullName: string
   email: string
   phone: string
+  educationLevel: string
+  instituteName: string
   address: string
   dateOfBirth: string
   idType: IdType
@@ -60,13 +63,18 @@ interface CompetitionRegistration {
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
+  isAdmin: boolean
+  isSuperAdmin: boolean
+  adminEmails: string[]
   profile: UserProfile | null
   registrations: CompetitionRegistration[]
   signInWithEmail: (email: string, password: string) => Promise<void>
-  signUpWithEmail: (fullName: string, email: string, password: string) => Promise<void>
+  signUpWithEmail: (fullName: string, email: string, password: string, educationLevel?: string, instituteName?: string) => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (profile: UserProfile) => Promise<void>
   addRegistration: (registration: CompetitionRegistration) => Promise<void>
+  grantAdminAccess: (email: string) => Promise<void>
+  revokeAdminAccess: (email: string) => Promise<void>
   isProfileComplete: boolean
   isRegisteredForCompetition: (competitionId: number) => boolean
 }
@@ -76,6 +84,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [adminEmails, setAdminEmails] = useState<string[]>([SUPER_ADMIN_EMAIL])
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [registrations, setRegistrations] = useState<CompetitionRegistration[]>([])
 
@@ -112,6 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fullName: syncedUser.fullName,
           email: syncedUser.email,
           phone: '',
+          educationLevel: '',
+          instituteName: '',
           address: '',
           dateOfBirth: '',
           idType: 'birth-registration',
@@ -129,11 +140,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const profileRef = doc(db, 'profiles', syncedUser.id)
       const registrationRef = doc(db, 'userRegistrations', syncedUser.id)
+      const adminRolesRef = doc(db, 'adminSettings', ADMIN_ROLES_DOC)
 
       const [profileSnap, registrationSnap] = await Promise.all([
         getDoc(profileRef),
         getDoc(registrationRef),
       ])
+
+      const adminRolesSnap = await getDoc(adminRolesRef)
+      const storedAdmins = adminRolesSnap.exists()
+        ? ((adminRolesSnap.data().emails as string[] | undefined) ?? [])
+            .map((email) => email.trim().toLowerCase())
+            .filter(Boolean)
+        : []
+
+      if (!storedAdmins.includes(SUPER_ADMIN_EMAIL)) {
+        const nextAdmins = Array.from(new Set([SUPER_ADMIN_EMAIL, ...storedAdmins]))
+        setAdminEmails(nextAdmins)
+        await setDoc(adminRolesRef, { emails: nextAdmins, updatedAt: Date.now() }, { merge: true })
+      } else {
+        setAdminEmails(Array.from(new Set(storedAdmins)))
+      }
 
       if (profileSnap.exists()) {
         const profileData = profileSnap.data() as Partial<UserProfile>
@@ -152,6 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fullName: profileData.fullName || syncedUser.fullName,
           email: syncedUser.email,
           phone: profileData.phone || '',
+          educationLevel: profileData.educationLevel || '',
+          instituteName: profileData.instituteName || '',
           address: profileData.address || '',
           dateOfBirth: profileData.dateOfBirth || '',
           idType: profileData.idType || 'birth-registration',
@@ -181,6 +210,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fullName: syncedUser.fullName,
           email: syncedUser.email,
           phone: '',
+          educationLevel: '',
+          instituteName: '',
           address: '',
           dateOfBirth: '',
           idType: 'birth-registration',
@@ -228,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(firebaseAuth, email, password)
   }
 
-  const signUpWithEmail = async (fullName: string, email: string, password: string) => {
+  const signUpWithEmail = async (fullName: string, email: string, password: string, educationLevel = '', instituteName = '') => {
     const firebaseAuth = getFirebaseAuth()
     if (!firebaseAuth) throw new Error('Firebase is not configured')
 
@@ -239,21 +270,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const defaultVerification = defaultVerificationByEmail(email)
-
-    setProfile((prev) => ({
+    const now = Date.now()
+    const createdProfile: UserProfile = {
       fullName,
       email,
-      phone: prev?.phone ?? '',
-      address: prev?.address ?? '',
-      dateOfBirth: prev?.dateOfBirth ?? '',
-      idType: prev?.idType ?? 'birth-registration',
-      idNumber: prev?.idNumber ?? '',
-      profilePhotoDataUrl: prev?.profilePhotoDataUrl ?? '',
-      idDocumentPhotoDataUrl: prev?.idDocumentPhotoDataUrl ?? '',
-      verificationStatus: prev?.verificationStatus ?? defaultVerification,
-      verificationReason: prev?.verificationReason ?? '',
-      verificationUpdatedAt: prev?.verificationUpdatedAt ?? Date.now(),
-    }))
+      phone: '',
+      educationLevel,
+      instituteName,
+      address: '',
+      dateOfBirth: '',
+      idType: 'birth-registration',
+      idNumber: '',
+      profilePhotoDataUrl: '',
+      idDocumentPhotoDataUrl: '',
+      verificationStatus: defaultVerification,
+      verificationReason: '',
+      verificationUpdatedAt: now,
+    }
+
+    const db = getFirestoreDb()
+    if (db) {
+      await Promise.all([
+        setDoc(
+          doc(db, 'profiles', credential.user.uid),
+          {
+            ...createdProfile,
+            updatedAt: now,
+          },
+          { merge: true },
+        ),
+        setDoc(
+          doc(db, 'userRegistrations', credential.user.uid),
+          {
+            items: [],
+            updatedAt: now,
+          },
+          { merge: true },
+        ),
+      ])
+    }
+
+    setProfile(createdProfile)
     setUser({
       id: credential.user.uid,
       fullName,
@@ -261,6 +318,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       avatarDataUrl: credential.user.photoURL || undefined,
       provider: 'email',
     })
+    setRegistrations([])
   }
 
   const signOut = async () => {
@@ -353,6 +411,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRegistrations(nextItems)
   }
 
+  const grantAdminAccess = async (email: string) => {
+    if (!user?.email || user.email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
+      throw new Error('Only super admin can assign admin access.')
+    }
+
+    const normalized = email.trim().toLowerCase()
+    if (!normalized) {
+      throw new Error('Admin email is required.')
+    }
+
+    const db = getFirestoreDb()
+    if (!db) {
+      throw new Error('Firestore is not configured.')
+    }
+
+    const nextAdmins = Array.from(new Set([...adminEmails, normalized, SUPER_ADMIN_EMAIL]))
+    await setDoc(
+      doc(db, 'adminSettings', ADMIN_ROLES_DOC),
+      {
+        emails: nextAdmins,
+        updatedAt: Date.now(),
+      },
+      { merge: true },
+    )
+    setAdminEmails(nextAdmins)
+  }
+
+  const revokeAdminAccess = async (email: string) => {
+    if (!user?.email || user.email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
+      throw new Error('Only super admin can remove admin access.')
+    }
+
+    const normalized = email.trim().toLowerCase()
+    if (!normalized || normalized === SUPER_ADMIN_EMAIL) {
+      throw new Error('Super admin access cannot be removed.')
+    }
+
+    const db = getFirestoreDb()
+    if (!db) {
+      throw new Error('Firestore is not configured.')
+    }
+
+    const nextAdmins = adminEmails.filter((item) => item !== normalized)
+    await setDoc(
+      doc(db, 'adminSettings', ADMIN_ROLES_DOC),
+      {
+        emails: nextAdmins,
+        updatedAt: Date.now(),
+      },
+      { merge: true },
+    )
+    setAdminEmails(nextAdmins)
+  }
+
+  const isSuperAdmin = user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
+  const isAdmin = Boolean(user?.email && (isSuperAdmin || adminEmails.includes(user.email.toLowerCase())))
+
   const isProfileComplete = useMemo(() => {
     if (!profile) return false
 
@@ -360,6 +475,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile.fullName &&
         profile.email &&
         profile.phone &&
+        profile.educationLevel &&
+        profile.instituteName &&
         profile.address &&
         profile.dateOfBirth &&
         profile.idType &&
@@ -378,6 +495,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         loading,
+        isAdmin,
+        isSuperAdmin,
+        adminEmails,
         profile,
         registrations,
         signInWithEmail,
@@ -385,6 +505,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         updateProfile,
         addRegistration,
+        grantAdminAccess,
+        revokeAdminAccess,
         isProfileComplete,
         isRegisteredForCompetition,
       }}

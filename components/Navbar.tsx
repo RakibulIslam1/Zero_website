@@ -16,7 +16,7 @@ const navLinks = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
-  const { user, signOut } = useAuth()
+  const { user, signOut, isAdmin } = useAuth()
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#FAEAE6]/95 backdrop-blur-md border-b border-[#e8cfc9]">
@@ -46,7 +46,7 @@ export default function Navbar() {
               </Link>
             ))}
 
-            {user?.email === 'rakibul.rir06@gmail.com' && (
+            {isAdmin && (
               <Link href="/admin" className="text-lg font-semibold text-gray-700 hover:text-accent transition-colors duration-200">
                 Admin
               </Link>
@@ -118,7 +118,7 @@ export default function Navbar() {
                 </Link>
               ))}
 
-              {user?.email === 'rakibul.rir06@gmail.com' && (
+              {isAdmin && (
                 <Link
                   href="/admin"
                   className="block text-base font-semibold text-gray-700 hover:text-accent py-2"

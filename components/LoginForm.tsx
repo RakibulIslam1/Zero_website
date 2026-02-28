@@ -14,7 +14,7 @@ export default function LoginForm() {
   const { signInWithEmail, signUpWithEmail } = useAuth()
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [showPassword, setShowPassword] = useState(false)
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', remember: false })
+  const [form, setForm] = useState({ fullName: '', email: '', password: '', educationLevel: '', instituteName: '', remember: false })
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [resetMessage, setResetMessage] = useState('')
@@ -33,7 +33,13 @@ export default function LoginForm() {
 
     try {
       if (mode === 'signup') {
-        await signUpWithEmail(form.fullName.trim(), form.email.trim(), form.password)
+        await signUpWithEmail(
+          form.fullName.trim(),
+          form.email.trim(),
+          form.password,
+          form.educationLevel.trim(),
+          form.instituteName.trim(),
+        )
         router.push('/profile')
         return
       }
@@ -119,21 +125,55 @@ export default function LoginForm() {
         {/* Email/Password Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
           {mode === 'signup' && (
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Full Name
-              </label>
-              <input
-                id="fullName"
-                name="fullName"
-                type="text"
-                required
-                value={form.fullName}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors"
-                placeholder="Your full name"
-              />
-            </div>
+            <>
+              <div>
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Full Name
+                </label>
+                <input
+                  id="fullName"
+                  name="fullName"
+                  type="text"
+                  required
+                  value={form.fullName}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors"
+                  placeholder="Your full name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="educationLevel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Education Level
+                </label>
+                <input
+                  id="educationLevel"
+                  name="educationLevel"
+                  type="text"
+                  required
+                  value={form.educationLevel}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors"
+                  placeholder="HSC / Undergraduate / Graduate"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="instituteName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Institute Name
+                </label>
+                <input
+                  id="instituteName"
+                  name="instituteName"
+                  type="text"
+                  required
+                  value={form.instituteName}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors"
+                  placeholder="Your school / college / university"
+                />
+              </div>
+            </>
           )}
 
           <div>
