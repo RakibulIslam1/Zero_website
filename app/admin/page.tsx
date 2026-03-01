@@ -75,8 +75,7 @@ export default function AdminPage() {
 
         setRows(items)
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load profiles.'
-        setError(message)
+        setError(toAdminError(err, 'Failed to load profiles.'))
       } finally {
         setLoadingRows(false)
       }
@@ -97,6 +96,19 @@ export default function AdminPage() {
     () => rows.find((row) => row.uid === selectedUid) ?? rows[0] ?? null,
     [rows, selectedUid],
   )
+
+  const toAdminError = (error: unknown, fallback: string) => {
+    if (error instanceof Error) {
+      const lowered = error.message.toLowerCase()
+      if (lowered.includes('permission-denied') || lowered.includes('missing or insufficient permissions')) {
+        return 'Permission denied by Firestore rules. Please update Firestore rules to allow admin verify/cancel/delete actions.'
+      }
+
+      return error.message
+    }
+
+    return fallback
+  }
 
   const updateStatus = async (target: AdminProfileRow, status: UserProfile['verificationStatus'], reason = '') => {
     if (target.email?.toLowerCase() === SUPER_ADMIN_EMAIL) {
@@ -154,8 +166,7 @@ export default function AdminPage() {
         ),
       )
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update verification status.'
-      setError(message)
+      setError(toAdminError(err, 'Failed to update verification status.'))
     } finally {
       setActiveUid(null)
       setCancelReasons((prev) => ({ ...prev, [target.uid]: '' }))
@@ -198,8 +209,7 @@ export default function AdminPage() {
       setRows((prev) => prev.filter((item) => item.uid !== target.uid))
       setSelectedUid('')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete account data.'
-      setError(message)
+      setError(toAdminError(err, 'Failed to delete account data.'))
     } finally {
       setActiveUid(null)
     }
@@ -221,7 +231,7 @@ export default function AdminPage() {
       setAdminActionMessage('Admin access granted successfully.')
       setNewAdminEmail('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to grant admin access.')
+      setError(toAdminError(err, 'Failed to grant admin access.'))
     }
   }
 
@@ -233,7 +243,7 @@ export default function AdminPage() {
       await revokeAdminAccess(email)
       setAdminActionMessage('Admin access removed successfully.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove admin access.')
+      setError(toAdminError(err, 'Failed to remove admin access.'))
     }
   }
 
