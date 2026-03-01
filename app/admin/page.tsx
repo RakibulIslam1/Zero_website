@@ -35,6 +35,7 @@ export default function AdminPage() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [lightboxAlt, setLightboxAlt] = useState('')
   const [activeTab, setActiveTab] = useState<'nonVerified' | 'verified' | null>(null)
+  const [nameSearch, setNameSearch] = useState('')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -363,13 +364,16 @@ export default function AdminPage() {
               </div>
             )}
 
-            <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-4">
-                <div className="bg-white rounded-3xl p-5 border border-[#e8cfc9] shadow-sm">
-                  <div className="flex gap-2 mb-4">
+            <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#e8cfc9]">
+
+                {/* ── LEFT: tabs + search + list ── */}
+                <div className="p-5 flex flex-col gap-3">
+                  {/* Tab buttons */}
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setActiveTab(activeTab === 'nonVerified' ? null : 'nonVerified')}
+                      onClick={() => { setActiveTab(activeTab === 'nonVerified' ? null : 'nonVerified'); setNameSearch(''); setSelectedUid('') }}
                       className={`flex-1 py-2.5 rounded-2xl font-semibold text-sm transition-colors border ${
                         activeTab === 'nonVerified'
                           ? 'bg-accent text-white border-accent'
@@ -380,7 +384,7 @@ export default function AdminPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setActiveTab(activeTab === 'verified' ? null : 'verified')}
+                      onClick={() => { setActiveTab(activeTab === 'verified' ? null : 'verified'); setNameSearch(''); setSelectedUid('') }}
                       className={`flex-1 py-2.5 rounded-2xl font-semibold text-sm transition-colors border ${
                         activeTab === 'verified'
                           ? 'bg-green-600 text-white border-green-600'
@@ -391,61 +395,58 @@ export default function AdminPage() {
                     </button>
                   </div>
 
-                  {activeTab === null && (
-                    <p className="text-sm text-gray-500 text-center py-6">Select a tab to view accounts.</p>
-                  )}
+                  {activeTab === null ? (
+                    <p className="text-sm text-gray-500 text-center py-8">Select a tab to view accounts.</p>
+                  ) : (
+                    <>
+                      {/* Search box */}
+                      <input
+                        type="text"
+                        value={nameSearch}
+                        onChange={(e) => setNameSearch(e.target.value)}
+                        placeholder="Search by name…"
+                        className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                      />
 
-                  {activeTab === 'nonVerified' && (
-                    <div className="space-y-2 max-h-[400px] overflow-auto pr-1">
-                      {grouped.nonVerified.map((account) => (
-                        <button
-                          key={account.uid}
-                          type="button"
-                          onClick={() => setSelectedUid(account.uid)}
-                          className={`w-full text-left rounded-2xl border px-3 py-2 transition-colors ${
-                            selectedProfile?.uid === account.uid
-                              ? 'border-accent bg-[#fff4ef]'
-                              : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'
-                          }`}
-                        >
-                          <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
-                          <p className="text-xs text-gray-600">{account.email}</p>
-                        </button>
-                      ))}
-                      {grouped.nonVerified.length === 0 && (
-                        <p className="text-sm text-gray-500">No non-verified accounts.</p>
-                      )}
-                    </div>
-                  )}
-
-                  {activeTab === 'verified' && (
-                    <div className="space-y-2 max-h-[400px] overflow-auto pr-1">
-                      {grouped.verified.map((account) => (
-                        <button
-                          key={account.uid}
-                          type="button"
-                          onClick={() => setSelectedUid(account.uid)}
-                          className={`w-full text-left rounded-2xl border px-3 py-2 transition-colors ${
-                            selectedProfile?.uid === account.uid
-                              ? 'border-accent bg-[#fff4ef]'
-                              : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'
-                          }`}
-                        >
-                          <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
-                          <p className="text-xs text-gray-600">{account.email}</p>
-                        </button>
-                      ))}
-                      {grouped.verified.length === 0 && (
-                        <p className="text-sm text-gray-500">No verified accounts yet.</p>
-                      )}
-                    </div>
+                      {/* Account list */}
+                      <div className="space-y-2 overflow-auto pr-1" style={{ maxHeight: 'calc(100vh - 420px)', minHeight: '200px' }}>
+                        {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified)
+                          .filter((a) =>
+                            nameSearch.trim() === '' ||
+                            (a.fullName ?? '').toLowerCase().includes(nameSearch.toLowerCase())
+                          )
+                          .map((account) => (
+                            <button
+                              key={account.uid}
+                              type="button"
+                              onClick={() => setSelectedUid(account.uid)}
+                              className={`w-full text-left rounded-2xl border px-3 py-2.5 transition-colors ${
+                                selectedProfile?.uid === account.uid
+                                  ? 'border-accent bg-[#fff4ef]'
+                                  : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'
+                              }`}
+                            >
+                              <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
+                              <p className="text-xs text-gray-500">{account.email}</p>
+                            </button>
+                          ))
+                        }
+                        {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified).filter((a) =>
+                          nameSearch.trim() === '' || (a.fullName ?? '').toLowerCase().includes(nameSearch.toLowerCase())
+                        ).length === 0 && (
+                          <p className="text-sm text-gray-500">
+                            {nameSearch.trim() ? 'No accounts match your search.' : activeTab === 'nonVerified' ? 'No non-verified accounts.' : 'No verified accounts yet.'}
+                          </p>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
-              </div>
 
-              <div className="lg:col-span-8">
+                {/* ── RIGHT: detail panel ── */}
+                <div className="p-5 overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                 {!selectedProfile ? (
-                  <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">Select an account to review details.</div>
+                  <p className="text-sm text-gray-500 py-8 text-center">Select an account from the list to review its details.</p>
                 ) : (
                   (() => {
                     const status = selectedProfile.verificationStatus || 'pending'
@@ -458,7 +459,7 @@ export default function AdminPage() {
                     const isBuiltInAdminProfile = selectedProfile.email?.toLowerCase() === SUPER_ADMIN_EMAIL
 
                     return (
-                      <article className="bg-white rounded-3xl p-6 border border-[#e8cfc9] shadow-sm">
+                      <article>
                         <div className="flex flex-wrap justify-between gap-3 items-start">
                           <div>
                             <h2 className="text-xl font-bold text-gray-900">{selectedProfile.fullName || 'Unnamed User'}</h2>
@@ -586,6 +587,7 @@ export default function AdminPage() {
                     )
                   })()
                 )}
+                </div>
               </div>
             </section>
           </>
