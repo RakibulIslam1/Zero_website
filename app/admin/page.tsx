@@ -93,7 +93,7 @@ export default function AdminPage() {
   }, [rows])
 
   const selectedProfile = useMemo(
-    () => rows.find((row) => row.uid === selectedUid) ?? rows[0] ?? null,
+    () => rows.find((row) => row.uid === selectedUid) ?? null,
     [rows, selectedUid],
   )
 
@@ -401,8 +401,8 @@ export default function AdminPage() {
               </div>
             </section>
 
-            <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm overflow-hidden">
-              <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#e8cfc9]">
+            <div className="flex flex-col lg:flex-row gap-6">
+              <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm w-full lg:w-2/5">
 
                 {/* LEFT: search + list */}
                 <div className="p-5 flex flex-col gap-3">
@@ -450,8 +450,10 @@ export default function AdminPage() {
                     </>
                   )}
                 </div>
+              </section>
 
                 {/* RIGHT: detail panel */}
+              <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm w-full lg:w-3/5">
                 <div className="p-5 overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                 {!selectedProfile ? (
                   <p className="text-sm text-gray-500 py-8 text-center">Select an account from the list to review its details.</p>
@@ -596,8 +598,8 @@ export default function AdminPage() {
                   })()
                 )}
                 </div>
-              </div>
-            </section>
+              </section>
+            </div>
           </>
         )}
       </div>

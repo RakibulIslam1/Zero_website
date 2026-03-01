@@ -216,6 +216,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           verificationUpdatedAt: resolvedVerificationUpdatedAt,
         })
 
+        setUser((current) => {
+          if (!current) return current
+          return {
+            ...current,
+            fullName: profileData.fullName || current.fullName,
+            avatarDataUrl: profileData.profilePhotoDataUrl || current.avatarDataUrl,
+          }
+        })
+
         if (shouldForceVerified && profileData.verificationStatus !== 'verified') {
           await setDoc(
             profileRef,
