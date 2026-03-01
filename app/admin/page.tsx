@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, setDoc, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
 import { useAuth, UserProfile } from '@/components/AuthProvider'
 import { getFirestoreDb } from '@/lib/firebase'
 
@@ -55,24 +55,19 @@ export default function AdminPage() {
 
       try {
         const profilesRef = collection(db, 'profiles')
-        let snap
+        const snap = await getDocs(profilesRef)
 
-        try {
-          const profileQuery = query(profilesRef, orderBy('updatedAt', 'desc'))
-          snap = await getDocs(profileQuery)
-        } catch {
-          snap = await getDocs(profilesRef)
-        }
-
-        const items = snap.docs.map((item) => ({
-          uid: item.id,
-          ...(item.data() as UserProfile),
-          educationLevel: (item.data().educationLevel as string) || '',
-          instituteName: (item.data().instituteName as string) || '',
-          verificationStatus: (item.data().verificationStatus as UserProfile['verificationStatus']) || 'pending',
-          verificationReason: (item.data().verificationReason as string) || '',
-          verificationUpdatedAt: (item.data().verificationUpdatedAt as number) || 0,
-        }))
+        const items = snap.docs
+          .map((item) => ({
+            uid: item.id,
+            ...(item.data() as UserProfile),
+            educationLevel: (item.data().educationLevel as string) || '',
+            instituteName: (item.data().instituteName as string) || '',
+            verificationStatus: (item.data().verificationStatus as UserProfile['verificationStatus']) || 'pending',
+            verificationReason: (item.data().verificationReason as string) || '',
+            verificationUpdatedAt: (item.data().verificationUpdatedAt as number) || 0,
+          }))
+          .sort((a, b) => (b.verificationUpdatedAt || 0) - (a.verificationUpdatedAt || 0))
 
         setRows(items)
         if (items.length > 0) {

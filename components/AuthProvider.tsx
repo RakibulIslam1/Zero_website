@@ -95,14 +95,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
-      if (!firebaseUser?.email) {
-        setUser(null)
-        setProfile(null)
-        setRegistrations([])
-        setLoading(false)
-        return
-      }
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
+      void (async () => {
+        try {
+          if (!firebaseUser?.email) {
+            setUser(null)
+            setProfile(null)
+            setRegistrations([])
+            return
+          }
 
       const syncedUser: AuthUser = {
         id: firebaseUser.uid,
@@ -134,21 +135,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           verificationUpdatedAt: Date.now(),
         })
         setRegistrations([])
-        setLoading(false)
         return
       }
 
-      const profileRef = doc(db, 'profiles', syncedUser.id)
-      const registrationRef = doc(db, 'userRegistrations', syncedUser.id)
-      const adminRolesRef = doc(db, 'adminSettings', ADMIN_ROLES_DOC)
+          const profileRef = doc(db, 'profiles', syncedUser.id)
+          const registrationRef = doc(db, 'userRegistrations', syncedUser.id)
+          const adminRolesRef = doc(db, 'adminSettings', ADMIN_ROLES_DOC)
 
-      const [profileSnap, registrationSnap] = await Promise.all([
-        getDoc(profileRef),
-        getDoc(registrationRef),
-      ])
+          let profileSnap, registrationSnap, adminRolesSnap
+          try {
+            ;[profileSnap, registrationSnap, adminRolesSnap] = await Promise.all([
+              getDoc(profileRef),
+              getDoc(registrationRef),
+              getDoc(adminRolesRef),
+            ])
+          } catch (readError) {
+            console.error('[AuthProvider] Firestore read failed — check your Firestore security rules:', readError)
+            const defaultVerification = defaultVerificationByEmail(syncedUser.email)
+            setProfile({
+              fullName: syncedUser.fullName,
+              email: syncedUser.email,
+              phone: '',
+              educationLevel: '',
+              instituteName: '',
+              address: '',
+              dateOfBirth: '',
+              idType: 'birth-registration',
+              idNumber: '',
+              profilePhotoDataUrl: '',
+              idDocumentPhotoDataUrl: '',
+              verificationStatus: defaultVerification,
+              verificationReason: '',
+              verificationUpdatedAt: Date.now(),
+            })
+            setRegistrations([])
+            return
+          }
 
-      const adminRolesSnap = await getDoc(adminRolesRef)
-      const storedAdmins = adminRolesSnap.exists()
+          const storedAdmins = adminRolesSnap.exists()
         ? ((adminRolesSnap.data().emails as string[] | undefined) ?? [])
             .map((email) => email.trim().toLowerCase())
             .filter(Boolean)
@@ -246,7 +270,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRegistrations([])
       }
 
-      setLoading(false)
+        } catch (unexpectedError) {
+          console.error('[AuthProvider] Unexpected error in auth state handler:', unexpectedError)
+        } finally {
+          setLoading(false)
+        }
+      })()
     })
 
     return () => unsubscribe()
@@ -341,17 +370,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       : nextProfile
 
-    setProfile(normalizedProfile)
-    setUser((current) => {
-      if (!current) return current
-      return {
-        ...current,
-        fullName: normalizedProfile.fullName,
-        email: normalizedProfile.email,
-        avatarDataUrl: normalizedProfile.profilePhotoDataUrl || current.avatarDataUrl,
-      }
-    })
-
     if (!user) {
       throw new Error('No authenticated user found.')
     }
@@ -374,6 +392,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const message = error instanceof Error ? error.message : 'Failed to write profile to Firestore.'
       throw new Error(message)
     }
+
+    // Only update local state after Firestore confirms the write
+    setProfile(normalizedProfile)
+    setUser((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        fullName: normalizedProfile.fullName,
+        email: normalizedProfile.email,
+        avatarDataUrl: normalizedProfile.profilePhotoDataUrl || current.avatarDataUrl,
+      }
+    })
   }
 
   const addRegistration = async (registration: CompetitionRegistration) => {
