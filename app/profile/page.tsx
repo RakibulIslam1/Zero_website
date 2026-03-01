@@ -7,12 +7,44 @@ import Image from 'next/image'
 import { useAuth, type UserProfile } from '@/components/AuthProvider'
 import { competitions } from '@/lib/competitions'
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(new Error('Failed to read file'))
-    reader.readAsDataURL(file)
+function compressImageToDataUrl(
+  file: File,
+  maxWidth = 700,
+  maxHeight = 700,
+  quality = 0.75,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    const objectUrl = URL.createObjectURL(file)
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+
+      let { width, height } = img
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height)
+        width = Math.round(width * ratio)
+        height = Math.round(height * ratio)
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('Canvas not available'))
+        return
+      }
+      ctx.drawImage(img, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Failed to load image for compression'))
+    }
+
+    img.src = objectUrl
   })
 }
 
@@ -42,6 +74,15 @@ function toFriendlyError(error: unknown) {
 
   if (message.includes('Firestore is not configured')) {
     return 'Database setup is incomplete. Please configure Firebase environment variables.'
+  }
+
+  if (
+    message.includes('invalid-argument') ||
+    message.includes('exceeds the maximum allowed size') ||
+    message.includes('too large') ||
+    message.includes('maximum size')
+  ) {
+    return 'Could not save: the uploaded images are still too large after compression. Please use smaller photos (under 500 KB each).'
   }
 
   return 'Could not save profile. Please try again.'
@@ -130,14 +171,21 @@ export default function ProfilePage() {
     const file = event.target.files?.[0]
     if (!file) return
 
-    const maxSizeInBytes = 2 * 1024 * 1024
+    // Reject completely unusable files early (>10 MB)
+    const maxSizeInBytes = 10 * 1024 * 1024
     if (file.size > maxSizeInBytes) {
-      setSaveError('Image size is too big. Please upload an image within 2MB.')
+      setSaveError('Image is too large to process. Please use an image under 10 MB.')
       return
     }
 
-    const dataUrl = await fileToDataUrl(file)
-    setForm((prev) => ({ ...prev, [field]: dataUrl }))
+    setSaveError('')
+    try {
+      // Compress & resize to JPEG ≤700×700 @ 0.75 quality → stays well under Firestore 1 MB limit
+      const dataUrl = await compressImageToDataUrl(file)
+      setForm((prev) => ({ ...prev, [field]: dataUrl }))
+    } catch {
+      setSaveError('Could not process the image. Please try a different file.')
+    }
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
