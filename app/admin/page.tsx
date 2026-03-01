@@ -364,35 +364,34 @@ export default function AdminPage() {
               </div>
             )}
 
-            <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm overflow-hidden">
-              {/* ── Full-width tab buttons ── */}
-              <div className="flex border-b border-[#e8cfc9]">
+            <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm p-4">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => { setActiveTab(activeTab === 'nonVerified' ? null : 'nonVerified'); setNameSearch(''); setSelectedUid('') }}
-                  className={`flex-1 py-3 font-semibold text-sm transition-colors border-b-2 ${
+                  className={`flex-1 py-3 rounded-2xl font-semibold text-sm transition-colors border ${
                     activeTab === 'nonVerified'
-                      ? 'border-accent text-accent bg-[#fff4ef]'
-                      : 'border-transparent text-gray-500 hover:text-accent hover:bg-[#fff9f8]'
+                      ? 'bg-accent text-white border-accent'
+                      : 'bg-[#fff4ef] text-accent border-[#f1d9d2] hover:bg-[#ffe8e0]'
                   }`}
                 >
                   Non-Verified ({grouped.nonVerified.length})
                 </button>
-                <div className="w-px bg-[#e8cfc9]" />
                 <button
                   type="button"
                   onClick={() => { setActiveTab(activeTab === 'verified' ? null : 'verified'); setNameSearch(''); setSelectedUid('') }}
-                  className={`flex-1 py-3 font-semibold text-sm transition-colors border-b-2 ${
+                  className={`flex-1 py-3 rounded-2xl font-semibold text-sm transition-colors border ${
                     activeTab === 'verified'
-                      ? 'border-green-600 text-green-700 bg-[#edf9f0]'
-                      : 'border-transparent text-gray-500 hover:text-green-700 hover:bg-[#f4fbf6]'
+                      ? 'bg-green-600 text-white border-green-600'
+                      : 'bg-[#edf9f0] text-green-700 border-[#cdebd4] hover:bg-[#d6f5df]'
                   }`}
                 >
                   Verified ({grouped.verified.length})
                 </button>
               </div>
+            </section>
 
-              {/* ── Two-column body ── */}
+            <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm overflow-hidden">
               <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#e8cfc9]">
 
                 {/* LEFT: search + list */}
