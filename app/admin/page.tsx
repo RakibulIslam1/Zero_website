@@ -365,41 +365,42 @@ export default function AdminPage() {
             )}
 
             <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm overflow-hidden">
+              {/* ── Full-width tab buttons ── */}
+              <div className="flex border-b border-[#e8cfc9]">
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab(activeTab === 'nonVerified' ? null : 'nonVerified'); setNameSearch(''); setSelectedUid('') }}
+                  className={`flex-1 py-3 font-semibold text-sm transition-colors border-b-2 ${
+                    activeTab === 'nonVerified'
+                      ? 'border-accent text-accent bg-[#fff4ef]'
+                      : 'border-transparent text-gray-500 hover:text-accent hover:bg-[#fff9f8]'
+                  }`}
+                >
+                  Non-Verified ({grouped.nonVerified.length})
+                </button>
+                <div className="w-px bg-[#e8cfc9]" />
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab(activeTab === 'verified' ? null : 'verified'); setNameSearch(''); setSelectedUid('') }}
+                  className={`flex-1 py-3 font-semibold text-sm transition-colors border-b-2 ${
+                    activeTab === 'verified'
+                      ? 'border-green-600 text-green-700 bg-[#edf9f0]'
+                      : 'border-transparent text-gray-500 hover:text-green-700 hover:bg-[#f4fbf6]'
+                  }`}
+                >
+                  Verified ({grouped.verified.length})
+                </button>
+              </div>
+
+              {/* ── Two-column body ── */}
               <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#e8cfc9]">
 
-                {/* ── LEFT: tabs + search + list ── */}
+                {/* LEFT: search + list */}
                 <div className="p-5 flex flex-col gap-3">
-                  {/* Tab buttons */}
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setActiveTab(activeTab === 'nonVerified' ? null : 'nonVerified'); setNameSearch(''); setSelectedUid('') }}
-                      className={`flex-1 py-2.5 rounded-2xl font-semibold text-sm transition-colors border ${
-                        activeTab === 'nonVerified'
-                          ? 'bg-accent text-white border-accent'
-                          : 'bg-[#fff4ef] text-accent border-[#f1d9d2] hover:bg-[#ffe8e0]'
-                      }`}
-                    >
-                      Non-Verified ({grouped.nonVerified.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setActiveTab(activeTab === 'verified' ? null : 'verified'); setNameSearch(''); setSelectedUid('') }}
-                      className={`flex-1 py-2.5 rounded-2xl font-semibold text-sm transition-colors border ${
-                        activeTab === 'verified'
-                          ? 'bg-green-600 text-white border-green-600'
-                          : 'bg-[#edf9f0] text-green-700 border-[#cdebd4] hover:bg-[#d6f5df]'
-                      }`}
-                    >
-                      Verified ({grouped.verified.length})
-                    </button>
-                  </div>
-
                   {activeTab === null ? (
-                    <p className="text-sm text-gray-500 text-center py-8">Select a tab to view accounts.</p>
+                    <p className="text-sm text-gray-500 text-center py-10">Select a tab above to view accounts.</p>
                   ) : (
                     <>
-                      {/* Search box */}
                       <input
                         type="text"
                         value={nameSearch}
@@ -407,8 +408,6 @@ export default function AdminPage() {
                         placeholder="Search by name…"
                         className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
                       />
-
-                      {/* Account list */}
                       <div className="space-y-2 overflow-auto pr-1" style={{ maxHeight: 'calc(100vh - 420px)', minHeight: '200px' }}>
                         {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified)
                           .filter((a) =>
@@ -431,9 +430,9 @@ export default function AdminPage() {
                             </button>
                           ))
                         }
-                        {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified).filter((a) =>
-                          nameSearch.trim() === '' || (a.fullName ?? '').toLowerCase().includes(nameSearch.toLowerCase())
-                        ).length === 0 && (
+                        {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified)
+                          .filter((a) => nameSearch.trim() === '' || (a.fullName ?? '').toLowerCase().includes(nameSearch.toLowerCase()))
+                          .length === 0 && (
                           <p className="text-sm text-gray-500">
                             {nameSearch.trim() ? 'No accounts match your search.' : activeTab === 'nonVerified' ? 'No non-verified accounts.' : 'No verified accounts yet.'}
                           </p>
@@ -443,7 +442,7 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                {/* ── RIGHT: detail panel ── */}
+                {/* RIGHT: detail panel */}
                 <div className="p-5 overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                 {!selectedProfile ? (
                   <p className="text-sm text-gray-500 py-8 text-center">Select an account from the list to review its details.</p>
