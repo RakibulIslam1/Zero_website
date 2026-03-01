@@ -32,6 +32,9 @@ export default function AdminPage() {
   const [selectedUid, setSelectedUid] = useState<string>('')
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [adminActionMessage, setAdminActionMessage] = useState('')
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxAlt, setLightboxAlt] = useState('')
+  const [activeTab, setActiveTab] = useState<'nonVerified' | 'verified' | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -70,9 +73,6 @@ export default function AdminPage() {
           .sort((a, b) => (b.verificationUpdatedAt || 0) - (a.verificationUpdatedAt || 0))
 
         setRows(items)
-        if (items.length > 0) {
-          setSelectedUid((prev) => prev || items[0].uid)
-        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load profiles.'
         setError(message)
@@ -339,150 +339,256 @@ export default function AdminPage() {
         ) : rows.length === 0 ? (
           <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">No profiles found.</section>
         ) : (
-          <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 space-y-4">
-              <div className="bg-white rounded-3xl p-5 border border-[#e8cfc9] shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 mb-3">Non-Verified Accounts</h3>
-                <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
-                  {grouped.nonVerified.map((account) => (
+          <>
+            {lightboxUrl && (
+              <div
+                className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+                onClick={() => setLightboxUrl(null)}
+              >
+                <div
+                  className="relative max-w-3xl w-full max-h-[90vh] flex items-center justify-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={lightboxUrl} alt={lightboxAlt} className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl" />
+                  <button
+                    type="button"
+                    onClick={() => setLightboxUrl(null)}
+                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 text-gray-900 hover:bg-white flex items-center justify-center font-bold text-xl shadow"
+                    aria-label="Close preview"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-4">
+                <div className="bg-white rounded-3xl p-5 border border-[#e8cfc9] shadow-sm">
+                  <div className="flex gap-2 mb-4">
                     <button
-                      key={account.uid}
                       type="button"
-                      onClick={() => setSelectedUid(account.uid)}
-                      className={`w-full text-left rounded-2xl border px-3 py-2 transition-colors ${selectedProfile?.uid === account.uid ? 'border-accent bg-[#fff4ef]' : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'}`}
+                      onClick={() => setActiveTab(activeTab === 'nonVerified' ? null : 'nonVerified')}
+                      className={`flex-1 py-2.5 rounded-2xl font-semibold text-sm transition-colors border ${
+                        activeTab === 'nonVerified'
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-[#fff4ef] text-accent border-[#f1d9d2] hover:bg-[#ffe8e0]'
+                      }`}
                     >
-                      <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
-                      <p className="text-xs text-gray-600">{account.email}</p>
+                      Non-Verified ({grouped.nonVerified.length})
                     </button>
-                  ))}
-                  {grouped.nonVerified.length === 0 && <p className="text-sm text-gray-500">No non-verified accounts.</p>}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab(activeTab === 'verified' ? null : 'verified')}
+                      className={`flex-1 py-2.5 rounded-2xl font-semibold text-sm transition-colors border ${
+                        activeTab === 'verified'
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-[#edf9f0] text-green-700 border-[#cdebd4] hover:bg-[#d6f5df]'
+                      }`}
+                    >
+                      Verified ({grouped.verified.length})
+                    </button>
+                  </div>
+
+                  {activeTab === null && (
+                    <p className="text-sm text-gray-500 text-center py-6">Select a tab to view accounts.</p>
+                  )}
+
+                  {activeTab === 'nonVerified' && (
+                    <div className="space-y-2 max-h-[400px] overflow-auto pr-1">
+                      {grouped.nonVerified.map((account) => (
+                        <button
+                          key={account.uid}
+                          type="button"
+                          onClick={() => setSelectedUid(account.uid)}
+                          className={`w-full text-left rounded-2xl border px-3 py-2 transition-colors ${
+                            selectedProfile?.uid === account.uid
+                              ? 'border-accent bg-[#fff4ef]'
+                              : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
+                          <p className="text-xs text-gray-600">{account.email}</p>
+                        </button>
+                      ))}
+                      {grouped.nonVerified.length === 0 && (
+                        <p className="text-sm text-gray-500">No non-verified accounts.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'verified' && (
+                    <div className="space-y-2 max-h-[400px] overflow-auto pr-1">
+                      {grouped.verified.map((account) => (
+                        <button
+                          key={account.uid}
+                          type="button"
+                          onClick={() => setSelectedUid(account.uid)}
+                          className={`w-full text-left rounded-2xl border px-3 py-2 transition-colors ${
+                            selectedProfile?.uid === account.uid
+                              ? 'border-accent bg-[#fff4ef]'
+                              : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
+                          <p className="text-xs text-gray-600">{account.email}</p>
+                        </button>
+                      ))}
+                      {grouped.verified.length === 0 && (
+                        <p className="text-sm text-gray-500">No verified accounts yet.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-5 border border-[#e8cfc9] shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 mb-3">Verified Accounts</h3>
-                <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
-                  {grouped.verified.map((account) => (
-                    <button
-                      key={account.uid}
-                      type="button"
-                      onClick={() => setSelectedUid(account.uid)}
-                      className={`w-full text-left rounded-2xl border px-3 py-2 transition-colors ${selectedProfile?.uid === account.uid ? 'border-accent bg-[#fff4ef]' : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'}`}
-                    >
-                      <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
-                      <p className="text-xs text-gray-600">{account.email}</p>
-                    </button>
-                  ))}
-                  {grouped.verified.length === 0 && <p className="text-sm text-gray-500">No verified accounts yet.</p>}
-                </div>
+              <div className="lg:col-span-8">
+                {!selectedProfile ? (
+                  <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">Select an account to review details.</div>
+                ) : (
+                  (() => {
+                    const status = selectedProfile.verificationStatus || 'pending'
+                    const badgeClass =
+                      status === 'verified'
+                        ? 'bg-[#edf9f0] border-[#cdebd4] text-green-700'
+                        : status === 'cancelled'
+                          ? 'bg-[#fff0f0] border-[#f5d1d1] text-red-700'
+                          : 'bg-[#fff4ef] border-[#f1d9d2] text-accent'
+                    const isBuiltInAdminProfile = selectedProfile.email?.toLowerCase() === SUPER_ADMIN_EMAIL
+
+                    return (
+                      <article className="bg-white rounded-3xl p-6 border border-[#e8cfc9] shadow-sm">
+                        <div className="flex flex-wrap justify-between gap-3 items-start">
+                          <div>
+                            <h2 className="text-xl font-bold text-gray-900">{selectedProfile.fullName || 'Unnamed User'}</h2>
+                            <p className="text-gray-600 text-sm mt-1">{selectedProfile.email}</p>
+                            <p className="text-gray-600 text-sm">Phone: {selectedProfile.phone || 'Not provided'}</p>
+                            <p className="text-gray-600 text-sm">Education: {selectedProfile.educationLevel || 'Not provided'}</p>
+                            <p className="text-gray-600 text-sm">Institute: {selectedProfile.instituteName || 'Not provided'}</p>
+                            <p className="text-gray-600 text-sm">ID: {selectedProfile.idType === 'passport' ? 'Passport' : 'Birth Registration'} • {selectedProfile.idNumber || 'Not provided'}</p>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full border text-sm font-medium ${badgeClass}`}>
+                            {status === 'verified' ? 'Verified' : status === 'cancelled' ? 'Cancelled' : 'Pending'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800 mb-2">Profile Photo</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (selectedProfile.profilePhotoDataUrl) {
+                                  setLightboxAlt(`${selectedProfile.fullName ?? ''} profile photo`)
+                                  setLightboxUrl(selectedProfile.profilePhotoDataUrl)
+                                }
+                              }}
+                              className={`w-full max-w-[260px] aspect-square rounded-2xl overflow-hidden border border-[#edd4ce] bg-[#faf1ef] block ${
+                                selectedProfile.profilePhotoDataUrl
+                                  ? 'cursor-zoom-in hover:ring-2 hover:ring-accent/40 transition-all'
+                                  : 'cursor-default'
+                              }`}
+                              title={selectedProfile.profilePhotoDataUrl ? 'Click to enlarge' : undefined}
+                            >
+                              {selectedProfile.profilePhotoDataUrl ? (
+                                <Image
+                                  src={selectedProfile.profilePhotoDataUrl}
+                                  alt={`${selectedProfile.fullName} profile photo`}
+                                  width={260}
+                                  height={260}
+                                  className="w-full h-full object-cover pointer-events-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No image</div>
+                              )}
+                            </button>
+                          </div>
+
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800 mb-2">ID Document</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (selectedProfile.idDocumentPhotoDataUrl) {
+                                  setLightboxAlt(`${selectedProfile.fullName ?? ''} id document`)
+                                  setLightboxUrl(selectedProfile.idDocumentPhotoDataUrl)
+                                }
+                              }}
+                              className={`w-full max-w-[260px] aspect-square rounded-2xl overflow-hidden border border-[#edd4ce] bg-[#faf1ef] block ${
+                                selectedProfile.idDocumentPhotoDataUrl
+                                  ? 'cursor-zoom-in hover:ring-2 hover:ring-accent/40 transition-all'
+                                  : 'cursor-default'
+                              }`}
+                              title={selectedProfile.idDocumentPhotoDataUrl ? 'Click to enlarge' : undefined}
+                            >
+                              {selectedProfile.idDocumentPhotoDataUrl ? (
+                                <Image
+                                  src={selectedProfile.idDocumentPhotoDataUrl}
+                                  alt={`${selectedProfile.fullName} id document`}
+                                  width={260}
+                                  height={260}
+                                  className="w-full h-full object-cover pointer-events-none"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No document</div>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {status === 'cancelled' && selectedProfile.verificationReason && (
+                          <p className="text-sm text-red-700 mt-4">Cancellation reason: {selectedProfile.verificationReason}</p>
+                        )}
+
+                        {isBuiltInAdminProfile ? (
+                          <p className="text-sm text-green-700 mt-5 font-medium">This account is permanently verified.</p>
+                        ) : (
+                          <>
+                            <div className="flex flex-wrap gap-3 mt-5">
+                              <button
+                                type="button"
+                                disabled={activeUid === selectedProfile.uid}
+                                onClick={() => updateStatus(selectedProfile, 'verified')}
+                                className="px-4 py-2.5 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
+                              >
+                                {activeUid === selectedProfile.uid ? 'Updating…' : 'Verify'}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={activeUid === selectedProfile.uid}
+                                onClick={() => void handleDeleteAccountData(selectedProfile)}
+                                className="px-4 py-2.5 rounded-2xl bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                              >
+                                {activeUid === selectedProfile.uid ? 'Deleting…' : 'Delete Account Data'}
+                              </button>
+                            </div>
+
+                            <form onSubmit={(event) => void handleCancel(event, selectedProfile)} className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+                              <input
+                                type="text"
+                                value={cancelReasons[selectedProfile.uid] || ''}
+                                onChange={(event) => setCancelReasons((prev) => ({ ...prev, [selectedProfile.uid]: event.target.value }))}
+                                placeholder="Reason for cancellation"
+                                className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                              />
+                              <button
+                                type="submit"
+                                disabled={activeUid === selectedProfile.uid}
+                                className="px-4 py-2.5 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                              >
+                                {activeUid === selectedProfile.uid ? 'Updating…' : 'Cancel Verification'}
+                              </button>
+                            </form>
+                          </>
+                        )}
+                      </article>
+                    )
+                  })()
+                )}
               </div>
-            </div>
-
-            <div className="lg:col-span-8">
-              {!selectedProfile ? (
-                <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">Select an account to review details.</div>
-              ) : (
-                (() => {
-                  const status = selectedProfile.verificationStatus || 'pending'
-                  const badgeClass =
-                    status === 'verified'
-                      ? 'bg-[#edf9f0] border-[#cdebd4] text-green-700'
-                      : status === 'cancelled'
-                        ? 'bg-[#fff0f0] border-[#f5d1d1] text-red-700'
-                        : 'bg-[#fff4ef] border-[#f1d9d2] text-accent'
-                  const isBuiltInAdminProfile = selectedProfile.email?.toLowerCase() === SUPER_ADMIN_EMAIL
-
-                  return (
-                    <article className="bg-white rounded-3xl p-6 border border-[#e8cfc9] shadow-sm">
-                      <div className="flex flex-wrap justify-between gap-3 items-start">
-                        <div>
-                          <h2 className="text-xl font-bold text-gray-900">{selectedProfile.fullName || 'Unnamed User'}</h2>
-                          <p className="text-gray-600 text-sm mt-1">{selectedProfile.email}</p>
-                          <p className="text-gray-600 text-sm">Phone: {selectedProfile.phone || 'Not provided'}</p>
-                          <p className="text-gray-600 text-sm">Education: {selectedProfile.educationLevel || 'Not provided'}</p>
-                          <p className="text-gray-600 text-sm">Institute: {selectedProfile.instituteName || 'Not provided'}</p>
-                          <p className="text-gray-600 text-sm">ID: {selectedProfile.idType === 'passport' ? 'Passport' : 'Birth Registration'} • {selectedProfile.idNumber || 'Not provided'}</p>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full border text-sm font-medium ${badgeClass}`}>
-                          {status === 'verified' ? 'Verified' : status === 'cancelled' ? 'Cancelled' : 'Pending'}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800 mb-2">Profile Photo</p>
-                          <div className="w-full max-w-[260px] aspect-square rounded-2xl overflow-hidden border border-[#edd4ce] bg-[#faf1ef]">
-                            {selectedProfile.profilePhotoDataUrl ? (
-                              <Image src={selectedProfile.profilePhotoDataUrl} alt={`${selectedProfile.fullName} profile photo`} width={260} height={260} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No image</div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800 mb-2">ID Document</p>
-                          <div className="w-full max-w-[260px] aspect-square rounded-2xl overflow-hidden border border-[#edd4ce] bg-[#faf1ef]">
-                            {selectedProfile.idDocumentPhotoDataUrl ? (
-                              <Image src={selectedProfile.idDocumentPhotoDataUrl} alt={`${selectedProfile.fullName} id document`} width={260} height={260} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No document</div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {status === 'cancelled' && selectedProfile.verificationReason && (
-                        <p className="text-sm text-red-700 mt-4">Cancellation reason: {selectedProfile.verificationReason}</p>
-                      )}
-
-                      {isBuiltInAdminProfile ? (
-                        <p className="text-sm text-green-700 mt-5 font-medium">This account is permanently verified.</p>
-                      ) : (
-                        <>
-                          <div className="flex flex-wrap gap-3 mt-5">
-                            <button
-                              type="button"
-                              disabled={activeUid === selectedProfile.uid}
-                              onClick={() => updateStatus(selectedProfile, 'verified')}
-                              className="px-4 py-2.5 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
-                            >
-                              {activeUid === selectedProfile.uid ? 'Updating…' : 'Verify'}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={activeUid === selectedProfile.uid}
-                              onClick={() => void handleDeleteAccountData(selectedProfile)}
-                              className="px-4 py-2.5 rounded-2xl bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-60 transition-colors"
-                            >
-                              {activeUid === selectedProfile.uid ? 'Deleting…' : 'Delete Account Data'}
-                            </button>
-                          </div>
-
-                          <form onSubmit={(event) => void handleCancel(event, selectedProfile)} className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
-                            <input
-                              type="text"
-                              value={cancelReasons[selectedProfile.uid] || ''}
-                              onChange={(event) => setCancelReasons((prev) => ({ ...prev, [selectedProfile.uid]: event.target.value }))}
-                              placeholder="Reason for cancellation"
-                              className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
-                            />
-                            <button
-                              type="submit"
-                              disabled={activeUid === selectedProfile.uid}
-                              className="px-4 py-2.5 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
-                            >
-                              {activeUid === selectedProfile.uid ? 'Updating…' : 'Cancel Verification'}
-                            </button>
-                          </form>
-                        </>
-                      )}
-                    </article>
-                  )
-                })()
-              )}
-            </div>
-          </section>
+            </section>
+          </>
         )}
       </div>
     </main>
