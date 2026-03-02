@@ -65,6 +65,12 @@ const emptyProfile: UserProfile = {
   verificationUpdatedAt: 0,
 }
 
+function getIdTypeLabel(idType: UserProfile['idType']) {
+  if (idType === 'passport') return 'Passport'
+  if (idType === 'nid') return 'NID'
+  return 'Birth Registration'
+}
+
 function toFriendlyError(error: unknown) {
   const message = error instanceof Error ? error.message : ''
 
@@ -119,7 +125,7 @@ export default function ProfilePage() {
     if (!form.instituteName) missing.push('Institute name')
     if (!form.address) missing.push('Address')
     if (!form.dateOfBirth) missing.push('Date of birth')
-    if (!form.idNumber) missing.push('Birth registration / passport number')
+    if (!form.idNumber) missing.push('Birth registration / passport / NID number')
     if (!form.profilePhotoDataUrl) missing.push('Profile photo')
     if (!form.idDocumentPhotoDataUrl) missing.push('ID document photo')
     return missing
@@ -170,6 +176,11 @@ export default function ProfilePage() {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>, field: 'profilePhotoDataUrl' | 'idDocumentPhotoDataUrl') => {
     const file = event.target.files?.[0]
     if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setSaveError('Only image files are allowed (JPG, PNG, WEBP, etc). PDF or other file types are not accepted.')
+      return
+    }
 
     // Reject completely unusable files early (>10 MB)
     const maxSizeInBytes = 10 * 1024 * 1024
@@ -320,7 +331,7 @@ export default function ProfilePage() {
               </div>
               <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
                 <p className="text-gray-500">ID Type</p>
-                <p className="text-gray-800 font-medium mt-1">{form.idType === 'passport' ? 'Passport' : 'Birth Registration'}</p>
+                <p className="text-gray-800 font-medium mt-1">{getIdTypeLabel(form.idType)}</p>
               </div>
               <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
                 <p className="text-gray-500">ID Number</p>
@@ -373,11 +384,12 @@ export default function ProfilePage() {
                   <select name="idType" value={form.idType} onChange={handleChange} className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent">
                     <option value="birth-registration">Birth Registration</option>
                     <option value="passport">Passport</option>
+                    <option value="nid">NID</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Birth Registration / Passport Number *</label>
+                  <label className="text-sm font-medium text-gray-700">Birth Registration / Passport / NID Number *</label>
                   <input name="idNumber" value={form.idNumber} onChange={handleChange} required className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
 

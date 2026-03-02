@@ -499,7 +499,7 @@ export default function AdminPage() {
                             <p className="text-gray-600 text-sm">Phone: {selectedProfile.phone || 'Not provided'}</p>
                             <p className="text-gray-600 text-sm">Education: {selectedProfile.educationLevel || 'Not provided'}</p>
                             <p className="text-gray-600 text-sm">Institute: {selectedProfile.instituteName || 'Not provided'}</p>
-                            <p className="text-gray-600 text-sm">ID: {selectedProfile.idType === 'passport' ? 'Passport' : 'Birth Registration'} • {selectedProfile.idNumber || 'Not provided'}</p>
+                            <p className="text-gray-600 text-sm">ID: {selectedProfile.idType === 'passport' ? 'Passport' : selectedProfile.idType === 'nid' ? 'NID' : 'Birth Registration'} • {selectedProfile.idNumber || 'Not provided'}</p>
                           </div>
                           <span className={`px-3 py-1 rounded-full border text-sm font-medium ${badgeClass}`}>
                             {status === 'verified' ? 'Verified' : status === 'cancelled' ? 'Cancelled' : 'Pending'}

@@ -22,7 +22,7 @@ function defaultVerificationByEmail(email: string): UserProfile['verificationSta
   return isAdminEmail(email) ? 'verified' : 'pending'
 }
 
-type IdType = 'birth-registration' | 'passport'
+type IdType = 'birth-registration' | 'passport' | 'nid'
 
 interface AuthUser {
   id: string

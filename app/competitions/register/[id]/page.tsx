@@ -81,7 +81,7 @@ export default function CompetitionRegisterPage() {
         <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 border border-[#e8cfc9] text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Complete your profile first</h1>
           <p className="text-gray-600 mb-6">
-            Birth registration/passport info, number, photo, address, and profile details are required before registration.
+            Birth registration/passport/NID info, number, photo, address, and profile details are required before registration.
           </p>
           <Link href="/profile" className="inline-flex px-6 py-3 rounded-full bg-accent text-white font-semibold hover:bg-accent/90 transition-colors">
             Go to profile
