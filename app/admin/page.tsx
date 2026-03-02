@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
 import { useAuth, UserProfile } from '@/components/AuthProvider'
 import { getFirestoreDb } from '@/lib/firebase'
 
@@ -136,21 +136,43 @@ export default function AdminPage() {
       })
 
       if (status === 'cancelled' && reason.trim()) {
+        let cancellationMailStatus: 'sent' | 'failed' = 'sent'
+        let cancellationMailError = ''
+
+        try {
+          const response = await fetch('/api/admin/rejection-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              to: target.email,
+              fullName: target.fullName || 'Participant',
+              reason,
+            }),
+          })
+
+          if (!response.ok) {
+            const payload = (await response.json().catch(() => ({}))) as { error?: string }
+            throw new Error(payload.error || 'Failed to send rejection email.')
+          }
+        } catch (mailError) {
+          cancellationMailStatus = 'failed'
+          cancellationMailError = mailError instanceof Error ? mailError.message : 'Failed to send rejection email.'
+        }
+
         await setDoc(doc(db, 'userRegistrations', target.uid), {
           verificationStatus: 'cancelled',
           verificationReason: reason,
           verificationUpdatedAt: now,
-          cancellationMailStatus: 'queued',
+          cancellationMailStatus,
+          cancellationMailError,
           updatedAt: now,
         }, { merge: true })
 
-        await addDoc(collection(db, 'mailQueue'), {
-          to: target.email,
-          subject: 'Zero Competitions verification update',
-          text: `Your verification was cancelled. Reason: ${reason}`,
-          createdAt: now,
-          status: 'queued',
-        })
+        if (cancellationMailStatus === 'failed') {
+          setError(`Verification cancelled but email sending failed: ${cancellationMailError}`)
+        }
       }
 
       setRows((prev) =>
