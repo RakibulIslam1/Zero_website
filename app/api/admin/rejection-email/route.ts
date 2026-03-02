@@ -3,6 +3,11 @@ const nodemailer = require('nodemailer')
 
 export const runtime = 'nodejs'
 
+const DEFAULT_SMTP_HOST = 'smtp-relay.brevo.com'
+const DEFAULT_SMTP_PORT = 587
+const DEFAULT_SMTP_USER = 'rakibul.rir06@gmail.com'
+const DEFAULT_SMTP_FROM = 'Zero Competitions <info.zerocomps@gmail.com>'
+
 type RejectionEmailPayload = {
   to?: string
   fullName?: string
@@ -17,15 +22,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing recipient email or rejection reason.' }, { status: 400 })
     }
 
-    const host = process.env.SMTP_HOST
-    const port = Number(process.env.SMTP_PORT || 587)
-    const user = process.env.SMTP_USER
+    const host = process.env.SMTP_HOST || DEFAULT_SMTP_HOST
+    const port = Number(process.env.SMTP_PORT || DEFAULT_SMTP_PORT)
+    const user = process.env.SMTP_USER || DEFAULT_SMTP_USER
     const pass = process.env.SMTP_PASS
-    const from = process.env.SMTP_FROM || user
+    const from = process.env.SMTP_FROM || DEFAULT_SMTP_FROM
 
-    if (!host || !user || !pass || !from) {
+    if (!pass) {
       return NextResponse.json(
-        { error: 'SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.' },
+        { error: 'SMTP is not configured. Set SMTP_PASS (and optionally SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM).' },
         { status: 500 },
       )
     }
