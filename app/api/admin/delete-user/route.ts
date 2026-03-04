@@ -64,6 +64,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete user account.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const hint = message.includes('Firebase Admin SDK is not configured')
+      ? ' Set FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY in Vercel and redeploy.'
+      : ''
+    return NextResponse.json({ error: `${message}${hint}` }, { status: 500 })
   }
 }

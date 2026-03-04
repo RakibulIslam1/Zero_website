@@ -3,8 +3,17 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
 function getPrivateKey() {
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
-  return privateKey ? privateKey.replace(/\\n/g, '\n') : undefined
+  const raw = process.env.FIREBASE_ADMIN_PRIVATE_KEY
+  if (!raw) return undefined
+
+  const trimmed = raw.trim()
+  const withoutWrappingQuotes =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1)
+      : trimmed
+
+  return withoutWrappingQuotes.replace(/\\n/g, '\n').replace(/\r/g, '')
 }
 
 function getFirebaseAdminApp() {
