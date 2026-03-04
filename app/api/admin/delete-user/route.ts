@@ -22,16 +22,30 @@ export async function POST(request: Request) {
     const adminAuth = getFirebaseAdminAuth()
     const adminDb = getFirebaseAdminDb()
 
-    const decoded = await adminAuth.verifyIdToken(token)
+    let decoded
+    try {
+      decoded = await adminAuth.verifyIdToken(token)
+    } catch (verifyError) {
+      const message = verifyError instanceof Error ? verifyError.message : 'Failed to verify admin token.'
+      return NextResponse.json({ error: `Token verification failed: ${message}` }, { status: 401 })
+    }
     const requesterEmail = decoded.email?.toLowerCase() || ''
 
     if (!requesterEmail) {
       return NextResponse.json({ error: 'Unable to identify requester email.' }, { status: 403 })
     }
 
-    const rolesDoc = await adminDb.doc('adminSettings/roles').get()
-    const adminEmails = ((rolesDoc.data()?.emails as string[] | undefined) ?? []).map((entry) => entry.toLowerCase())
-    const isAllowedAdmin = requesterEmail === SUPER_ADMIN_EMAIL || adminEmails.includes(requesterEmail)
+    let isAllowedAdmin = requesterEmail === SUPER_ADMIN_EMAIL
+    if (!isAllowedAdmin) {
+      try {
+        const rolesDoc = await adminDb.doc('adminSettings/roles').get()
+        const adminEmails = ((rolesDoc.data()?.emails as string[] | undefined) ?? []).map((entry) => entry.toLowerCase())
+        isAllowedAdmin = adminEmails.includes(requesterEmail)
+      } catch (rolesError) {
+        const message = rolesError instanceof Error ? rolesError.message : 'Failed to verify admin roles.'
+        return NextResponse.json({ error: `Role check failed: ${message}` }, { status: 500 })
+      }
+    }
 
     if (!isAllowedAdmin) {
       return NextResponse.json({ error: 'Only admin users can delete accounts.' }, { status: 403 })
@@ -47,17 +61,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Super admin account cannot be deleted.' }, { status: 400 })
     }
 
-    await Promise.all([
-      adminDb.doc(`profiles/${uid}`).delete().catch(() => undefined),
-      adminDb.doc(`userRegistrations/${uid}`).delete().catch(() => undefined),
-    ])
+    try {
+      await Promise.all([
+        adminDb.doc(`profiles/${uid}`).delete().catch(() => undefined),
+        adminDb.doc(`userRegistrations/${uid}`).delete().catch(() => undefined),
+      ])
+    } catch (dbDeleteError) {
+      const message = dbDeleteError instanceof Error ? dbDeleteError.message : 'Failed to delete Firestore account docs.'
+      return NextResponse.json({ error: `Firestore delete failed: ${message}` }, { status: 500 })
+    }
 
     try {
       await adminAuth.deleteUser(uid)
     } catch (authDeleteError) {
       const code = (authDeleteError as { code?: string })?.code || ''
       if (code !== 'auth/user-not-found') {
-        throw authDeleteError
+        const message = authDeleteError instanceof Error ? authDeleteError.message : 'Failed to delete auth user.'
+        return NextResponse.json({ error: `Auth delete failed: ${message}` }, { status: 500 })
       }
     }
 

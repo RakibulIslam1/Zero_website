@@ -253,7 +253,7 @@ export default function AdminPage() {
     }
 
     const firebaseAuth = getFirebaseAuth()
-    const token = await firebaseAuth?.currentUser?.getIdToken()
+    const token = await firebaseAuth?.currentUser?.getIdToken(true)
     if (!token) {
       setError('You must be logged in as admin to delete this account.')
       return
