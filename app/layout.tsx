@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   title: 'Zero Competitions',
   description: 'ZERO is a modern, innovative company delivering excellence in every project.',
   icons: {
-    icon: '/images/favicon.png',
+    icon: '/images/favicon.png?v=20250305',
   },
 }
 
