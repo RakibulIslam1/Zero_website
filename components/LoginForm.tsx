@@ -144,7 +144,7 @@ export default function LoginForm() {
 
               <div>
                 <label htmlFor="educationLevel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Education Level
+                  Education Level (Example: Class-5, HSC, SSC, Undergraduate)
                 </label>
                 <input
                   id="educationLevel"
