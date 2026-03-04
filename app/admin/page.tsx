@@ -4,9 +4,9 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
+import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
 import { useAuth, UserProfile } from '@/components/AuthProvider'
-import { getFirestoreDb } from '@/lib/firebase'
+import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 
 type AdminProfileRow = UserProfile & { uid: string }
 type AdminRegistration = {
@@ -213,18 +213,6 @@ export default function AdminPage() {
     }
   }
 
-  const handleCancel = async (event: FormEvent<HTMLFormElement>, target: AdminProfileRow) => {
-    event.preventDefault()
-    const trimmed = (cancelReasons[target.uid] || '').trim()
-
-    if (!trimmed) {
-      setError('Please provide a cancellation reason.')
-      return
-    }
-
-    await updateStatus(target, 'cancelled', trimmed)
-  }
-
   const handleCancelAndDelete = async (event: FormEvent<HTMLFormElement>, target: AdminProfileRow) => {
     event.preventDefault()
     const trimmed = (cancelReasons[target.uid] || '').trim()
@@ -234,7 +222,27 @@ export default function AdminPage() {
       return
     }
 
-    await updateStatus(target, 'cancelled', trimmed)
+    try {
+      const response = await fetch('/api/admin/rejection-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: target.email,
+          fullName: target.fullName || 'Participant',
+          reason: trimmed,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to send rejection email.')
+      }
+    } catch (mailError) {
+      setError(mailError instanceof Error ? mailError.message : 'Failed to send rejection email.')
+    }
+
     await handleDeleteAccountData(target)
   }
 
@@ -244,9 +252,10 @@ export default function AdminPage() {
       return
     }
 
-    const db = getFirestoreDb()
-    if (!db) {
-      setError('Firestore is not configured.')
+    const firebaseAuth = getFirebaseAuth()
+    const token = await firebaseAuth?.currentUser?.getIdToken()
+    if (!token) {
+      setError('You must be logged in as admin to delete this account.')
       return
     }
 
@@ -254,10 +263,22 @@ export default function AdminPage() {
     setError(null)
 
     try {
-      await Promise.all([
-        deleteDoc(doc(db, 'profiles', target.uid)),
-        deleteDoc(doc(db, 'userRegistrations', target.uid)),
-      ])
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          uid: target.uid,
+          email: target.email,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to delete account.')
+      }
 
       setRows((prev) => prev.filter((item) => item.uid !== target.uid))
       setRegistrationsByUid((prev) => {
@@ -267,7 +288,7 @@ export default function AdminPage() {
       })
       setSelectedUid('')
     } catch (err) {
-      setError(toAdminError(err, 'Failed to delete account data.'))
+      setError(toAdminError(err, 'Failed to delete account data and auth user.'))
     } finally {
       setActiveUid(null)
     }
