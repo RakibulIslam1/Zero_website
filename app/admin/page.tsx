@@ -213,22 +213,42 @@ export default function AdminPage() {
     }
   }
 
-  const handleCancel = async (event: FormEvent<HTMLFormElement>, target: AdminProfileRow) => {
-    event.preventDefault()
-    const trimmed = (cancelReasons[target.uid] || '').trim()
-
-    if (!trimmed) {
-      setError('Please provide a cancellation reason.')
-      return
-    }
-
-    await updateStatus(target, 'cancelled', trimmed)
-  }
-
   const handleDeleteAccountData = async (target: AdminProfileRow) => {
     if (target.email?.toLowerCase() === SUPER_ADMIN_EMAIL) {
       setError('Super admin account data cannot be deleted from panel.')
       return
+    }
+
+    const status = target.verificationStatus || 'pending'
+    const cancellationReason = (cancelReasons[target.uid] || '').trim()
+
+    if (status !== 'verified') {
+      if (!cancellationReason) {
+        setError('Please provide a cancellation reason before deleting this account.')
+        return
+      }
+
+      try {
+        const response = await fetch('/api/admin/rejection-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: target.email,
+            fullName: target.fullName || 'Participant',
+            reason: cancellationReason,
+          }),
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(payload.error || 'Failed to send rejection email.')
+        }
+      } catch (mailError) {
+        setError(mailError instanceof Error ? mailError.message : 'Failed to send rejection email.')
+        return
+      }
     }
 
     const firebaseAuth = getFirebaseAuth()
@@ -261,6 +281,11 @@ export default function AdminPage() {
 
       setRows((prev) => prev.filter((item) => item.uid !== target.uid))
       setRegistrationsByUid((prev) => {
+        const next = { ...prev }
+        delete next[target.uid]
+        return next
+      })
+      setCancelReasons((prev) => {
         const next = { ...prev }
         delete next[target.uid]
         return next
@@ -653,7 +678,7 @@ export default function AdminPage() {
                             </div>
 
                             {status !== 'verified' && (
-                              <form onSubmit={(event) => void handleCancel(event, selectedProfile)} className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+                              <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
                                 <input
                                   type="text"
                                   value={cancelReasons[selectedProfile.uid] || ''}
@@ -661,14 +686,7 @@ export default function AdminPage() {
                                   placeholder="Reason for cancellation"
                                   className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
                                 />
-                                <button
-                                  type="submit"
-                                  disabled={activeUid === selectedProfile.uid}
-                                  className="px-4 py-2.5 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
-                                >
-                                  {activeUid === selectedProfile.uid ? 'Updating…' : 'Cancel Verification'}
-                                </button>
-                              </form>
+                              </div>
                             )}
                           </>
                         )}
