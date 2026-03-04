@@ -617,14 +617,16 @@ export default function AdminPage() {
                         ) : (
                           <>
                             <div className="flex flex-wrap gap-3 mt-5">
-                              <button
-                                type="button"
-                                disabled={activeUid === selectedProfile.uid}
-                                onClick={() => updateStatus(selectedProfile, 'verified')}
-                                className="px-4 py-2.5 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
-                              >
-                                {activeUid === selectedProfile.uid ? 'Updating…' : 'Verify'}
-                              </button>
+                              {status !== 'cancelled' && (
+                                <button
+                                  type="button"
+                                  disabled={activeUid === selectedProfile.uid}
+                                  onClick={() => updateStatus(selectedProfile, 'verified')}
+                                  className="px-4 py-2.5 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
+                                >
+                                  {activeUid === selectedProfile.uid ? 'Updating…' : 'Verify'}
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 disabled={activeUid === selectedProfile.uid}
