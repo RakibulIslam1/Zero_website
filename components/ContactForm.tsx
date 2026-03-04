@@ -6,14 +6,39 @@ import { Send } from 'lucide-react'
 export default function ContactForm() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
+    setErrorMessage('')
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(form),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to send your message.')
+      }
+
+      setSubmitted(true)
+      setForm({ name: '', email: '', subject: '', message: '' })
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to send your message.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -94,11 +119,14 @@ export default function ContactForm() {
       </div>
       <button
         type="submit"
+        disabled={isSubmitting}
         className="w-full py-4 bg-accent text-white rounded-lg font-semibold hover:bg-accent/90 transition-colors duration-200 flex items-center justify-center space-x-2"
       >
         <Send size={18} />
-        <span>Send Message</span>
+        <span>{isSubmitting ? 'Sending...' : 'Send Message'}</span>
       </button>
+
+      {errorMessage && <p className="text-sm text-red-700">{errorMessage}</p>}
     </form>
   )
 }
