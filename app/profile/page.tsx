@@ -91,6 +91,14 @@ function toFriendlyError(error: unknown) {
     return 'Could not save: the uploaded images are still too large after compression. Please use smaller photos (under 500 KB each).'
   }
 
+  if (message.includes('must be an image file')) {
+    return 'Only image files are allowed for profile photo and ID document.'
+  }
+
+  if (message.includes('Image is too large after processing')) {
+    return 'One of your images is still too large after compression. Please upload a smaller image.'
+  }
+
   return 'Could not save profile. Please try again.'
 }
 

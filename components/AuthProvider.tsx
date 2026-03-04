@@ -22,6 +22,15 @@ function defaultVerificationByEmail(email: string): UserProfile['verificationSta
   return isAdminEmail(email) ? 'verified' : 'pending'
 }
 
+function isImageDataUrl(value: string) {
+  return /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value)
+}
+
+function estimateDataUrlBytes(dataUrl: string) {
+  const base64 = dataUrl.split(',')[1] || ''
+  return Math.ceil((base64.length * 3) / 4)
+}
+
 type IdType = 'birth-registration' | 'passport' | 'nid'
 
 interface AuthUser {
@@ -381,6 +390,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) {
       throw new Error('No authenticated user found.')
+    }
+
+    if (normalizedProfile.profilePhotoDataUrl && !isImageDataUrl(normalizedProfile.profilePhotoDataUrl)) {
+      throw new Error('Profile photo must be an image file.')
+    }
+
+    if (normalizedProfile.idDocumentPhotoDataUrl && !isImageDataUrl(normalizedProfile.idDocumentPhotoDataUrl)) {
+      throw new Error('ID document photo must be an image file.')
+    }
+
+    const profilePhotoBytes = normalizedProfile.profilePhotoDataUrl
+      ? estimateDataUrlBytes(normalizedProfile.profilePhotoDataUrl)
+      : 0
+    const idDocumentBytes = normalizedProfile.idDocumentPhotoDataUrl
+      ? estimateDataUrlBytes(normalizedProfile.idDocumentPhotoDataUrl)
+      : 0
+
+    const maxImageBytes = 500 * 1024
+    if (profilePhotoBytes > maxImageBytes || idDocumentBytes > maxImageBytes) {
+      throw new Error('Image is too large after processing. Please upload a smaller image.')
     }
 
     const db = getFirestoreDb()

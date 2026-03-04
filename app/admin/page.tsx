@@ -9,6 +9,13 @@ import { useAuth, UserProfile } from '@/components/AuthProvider'
 import { getFirestoreDb } from '@/lib/firebase'
 
 type AdminProfileRow = UserProfile & { uid: string }
+type AdminRegistration = {
+  competitionId: number
+  competitionName: string
+  competitionDate: string
+  teamName: string
+  submittedAt: string
+}
 
 const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
 
@@ -36,6 +43,7 @@ export default function AdminPage() {
   const [lightboxAlt, setLightboxAlt] = useState('')
   const [activeTab, setActiveTab] = useState<'nonVerified' | 'verified' | null>(null)
   const [nameSearch, setNameSearch] = useState('')
+  const [registrationsByUid, setRegistrationsByUid] = useState<Record<string, AdminRegistration[]>>({})
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -59,7 +67,8 @@ export default function AdminPage() {
 
       try {
         const profilesRef = collection(db, 'profiles')
-        const snap = await getDocs(profilesRef)
+        const registrationsRef = collection(db, 'userRegistrations')
+        const [snap, registrationsSnap] = await Promise.all([getDocs(profilesRef), getDocs(registrationsRef)])
 
         const items = snap.docs
           .map((item) => ({
@@ -73,7 +82,14 @@ export default function AdminPage() {
           }))
           .sort((a, b) => (b.verificationUpdatedAt || 0) - (a.verificationUpdatedAt || 0))
 
+        const nextRegistrationsByUid: Record<string, AdminRegistration[]> = {}
+        registrationsSnap.forEach((registrationDoc) => {
+          const items = (registrationDoc.data().items as AdminRegistration[] | undefined) ?? []
+          nextRegistrationsByUid[registrationDoc.id] = items
+        })
+
         setRows(items)
+        setRegistrationsByUid(nextRegistrationsByUid)
       } catch (err) {
         setError(toAdminError(err, 'Failed to load profiles.'))
       } finally {
@@ -229,6 +245,11 @@ export default function AdminPage() {
       ])
 
       setRows((prev) => prev.filter((item) => item.uid !== target.uid))
+      setRegistrationsByUid((prev) => {
+        const next = { ...prev }
+        delete next[target.uid]
+        return next
+      })
       setSelectedUid('')
     } catch (err) {
       setError(toAdminError(err, 'Failed to delete account data.'))
@@ -504,6 +525,23 @@ export default function AdminPage() {
                           <span className={`px-3 py-1 rounded-full border text-sm font-medium ${badgeClass}`}>
                             {status === 'verified' ? 'Verified' : status === 'cancelled' ? 'Cancelled' : 'Pending'}
                           </span>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                          <p className="text-sm font-semibold text-gray-800 mb-2">Registered Competitions</p>
+                          {(registrationsByUid[selectedProfile.uid] ?? []).length > 0 ? (
+                            <ul className="space-y-2">
+                              {(registrationsByUid[selectedProfile.uid] ?? []).map((entry, index) => (
+                                <li key={`${entry.competitionId}-${index}`} className="text-sm text-gray-700">
+                                  <span className="font-medium">{entry.competitionName || `Competition #${entry.competitionId}`}</span>
+                                  {entry.competitionDate ? ` • ${entry.competitionDate}` : ''}
+                                  {entry.teamName ? ` • Team: ${entry.teamName}` : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-gray-600">No competition registrations found.</p>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
