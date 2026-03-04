@@ -337,24 +337,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const db = getFirestoreDb()
     if (db) {
-      await Promise.all([
-        setDoc(
-          doc(db, 'profiles', credential.user.uid),
-          {
-            ...createdProfile,
-            updatedAt: now,
-          },
-          { merge: true },
-        ),
-        setDoc(
-          doc(db, 'userRegistrations', credential.user.uid),
-          {
-            items: [],
-            updatedAt: now,
-          },
-          { merge: true },
-        ),
-      ])
+      try {
+        await Promise.all([
+          setDoc(
+            doc(db, 'profiles', credential.user.uid),
+            {
+              ...createdProfile,
+              updatedAt: now,
+            },
+            { merge: true },
+          ),
+          setDoc(
+            doc(db, 'userRegistrations', credential.user.uid),
+            {
+              items: [],
+              updatedAt: now,
+            },
+            { merge: true },
+          ),
+        ])
+      } catch (writeError) {
+        console.error('[AuthProvider] Sign-up succeeded but initial Firestore write failed:', writeError)
+      }
     }
 
     setProfile(createdProfile)

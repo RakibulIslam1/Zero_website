@@ -9,6 +9,25 @@ import { sendPasswordResetEmail } from 'firebase/auth'
 import { getFirebaseAuth } from '../lib/firebase'
 import Image from 'next/image'
 
+function toFriendlyAuthError(error: unknown) {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code || '')
+    : ''
+  const message = error instanceof Error ? error.message : ''
+
+  if (code === 'auth/email-already-in-use') return 'This email is already in use. Please sign in instead.'
+  if (code === 'auth/invalid-email') return 'Please enter a valid email address.'
+  if (code === 'auth/weak-password') return 'Password is too weak. Use at least 6 characters.'
+  if (code === 'auth/operation-not-allowed') return 'Email/password sign-up is disabled in Firebase Auth settings.'
+  if (code === 'auth/network-request-failed') return 'Network error. Please check your internet connection and try again.'
+  if (code === 'auth/too-many-requests') return 'Too many attempts. Please wait and try again.'
+  if (message.toLowerCase().includes('missing or insufficient permissions')) {
+    return 'Account created but profile setup failed due Firestore permissions. Please contact admin.'
+  }
+
+  return 'Authentication failed. Please try again.'
+}
+
 export default function LoginForm() {
   const router = useRouter()
   const { signInWithEmail, signUpWithEmail } = useAuth()
@@ -47,7 +66,7 @@ export default function LoginForm() {
       await signInWithEmail(form.email.trim(), form.password)
       router.push('/profile')
     } catch (error) {
-      setErrorMessage('Authentication failed. Please check your credentials and try again.')
+      setErrorMessage(toFriendlyAuthError(error))
     } finally {
       setIsSubmitting(false)
     }
