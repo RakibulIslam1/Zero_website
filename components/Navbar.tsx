@@ -16,7 +16,7 @@ const navLinks = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
-  const { user, signOut, isAdmin, isProfileComplete } = useAuth()
+  const { user, signOut, isAdmin, isProfileComplete, loading, profile } = useAuth()
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#FAEAE6]/95 backdrop-blur-md border-b border-[#e8cfc9]">
@@ -97,7 +97,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {user && !isProfileComplete && (
+      {!loading && user && profile && !isProfileComplete && (
         <div className="border-t border-[#efd6d1] bg-[#fff4ef]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3">
             <p className="text-sm text-accent font-medium">Your profile is incomplete. Complete it to unlock all features.</p>

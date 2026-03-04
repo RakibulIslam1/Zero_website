@@ -162,6 +162,13 @@ export default function ProfilePage() {
       .filter(Boolean)
   }, [registrations])
 
+  const openEditProfileSection = () => {
+    setEditMode(true)
+    setTimeout(() => {
+      document.getElementById('edit-profile')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen pt-28 px-4">
@@ -254,10 +261,10 @@ export default function ProfilePage() {
 
             <button
               type="button"
-              onClick={() => setEditMode((current) => !current)}
+              onClick={openEditProfileSection}
               className="w-full mt-6 px-4 py-3 rounded-2xl border border-[#e8cfc9] text-gray-700 font-semibold hover:bg-[#f8dfda] transition-colors"
             >
-              {editMode ? 'Close Edit Profile' : 'Edit Profile'}
+              Edit Profile
             </button>
 
             <button
@@ -282,12 +289,7 @@ export default function ProfilePage() {
               <p className={`text-sm font-medium ${isProfileComplete ? 'text-green-700' : 'text-accent'}`}>{profileStatusLine}</p>
               <button
                 type="button"
-                onClick={() => {
-                  setEditMode(true)
-                  setTimeout(() => {
-                    document.getElementById('edit-profile')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                  }, 80)
-                }}
+                onClick={openEditProfileSection}
                 className="inline-flex px-4 py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent/90 transition-colors"
               >
                 Update Information

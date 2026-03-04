@@ -39,21 +39,6 @@ export default function Hero() {
           </div>
         </motion.div>
 
-        {/* Scroll indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2, duration: 0.8 }}
-          className="mt-16"
-        >
-          <motion.div
-            animate={{ y: [0, 10, 0] }}
-            transition={{ repeat: Infinity, duration: 1.5 }}
-            className="w-6 h-10 border-2 border-gray-400 dark:border-gray-600 rounded-full mx-auto flex items-start justify-center pt-2"
-          >
-            <div className="w-1 h-3 bg-gray-400 dark:bg-gray-600 rounded-full" />
-          </motion.div>
-        </motion.div>
       </div>
     </section>
   )
