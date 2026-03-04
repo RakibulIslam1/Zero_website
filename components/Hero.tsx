@@ -26,7 +26,7 @@ export default function Hero() {
             Welcome to <span className="text-accent">Zero Competitions</span>
           </h1>
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed">
-            Zero limits, infinite opportunities
+            Zero Limits, Infinite Opportunities
           </p>
           <div className="flex justify-center">
             <Link
