@@ -204,7 +204,9 @@ export default function AdminPage() {
         ),
       )
     } catch (err) {
-      setError(toAdminError(err, 'Failed to update verification status.'))
+      const message = toAdminError(err, 'Failed to update verification status.')
+      setError(message)
+      throw new Error(message)
     } finally {
       setActiveUid(null)
       setCancelReasons((prev) => ({ ...prev, [target.uid]: '' }))
@@ -221,6 +223,19 @@ export default function AdminPage() {
     }
 
     await updateStatus(target, 'cancelled', trimmed)
+  }
+
+  const handleCancelAndDelete = async (event: FormEvent<HTMLFormElement>, target: AdminProfileRow) => {
+    event.preventDefault()
+    const trimmed = (cancelReasons[target.uid] || '').trim()
+
+    if (!trimmed) {
+      setError('Please provide a cancellation reason.')
+      return
+    }
+
+    await updateStatus(target, 'cancelled', trimmed)
+    await handleDeleteAccountData(target)
   }
 
   const handleDeleteAccountData = async (target: AdminProfileRow) => {
@@ -617,7 +632,7 @@ export default function AdminPage() {
                         ) : (
                           <>
                             <div className="flex flex-wrap gap-3 mt-5">
-                              {status !== 'cancelled' && (
+                              {status === 'pending' && (
                                 <button
                                   type="button"
                                   disabled={activeUid === selectedProfile.uid}
@@ -627,32 +642,36 @@ export default function AdminPage() {
                                   {activeUid === selectedProfile.uid ? 'Updating…' : 'Verify'}
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                disabled={activeUid === selectedProfile.uid}
-                                onClick={() => void handleDeleteAccountData(selectedProfile)}
-                                className="px-4 py-2.5 rounded-2xl bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-60 transition-colors"
-                              >
-                                {activeUid === selectedProfile.uid ? 'Deleting…' : 'Delete Account Data'}
-                              </button>
+                              {status === 'verified' && (
+                                <button
+                                  type="button"
+                                  disabled={activeUid === selectedProfile.uid}
+                                  onClick={() => void handleDeleteAccountData(selectedProfile)}
+                                  className="px-4 py-2.5 rounded-2xl bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                                >
+                                  {activeUid === selectedProfile.uid ? 'Deleting…' : 'Delete Account Data'}
+                                </button>
+                              )}
                             </div>
 
-                            <form onSubmit={(event) => void handleCancel(event, selectedProfile)} className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
-                              <input
-                                type="text"
-                                value={cancelReasons[selectedProfile.uid] || ''}
-                                onChange={(event) => setCancelReasons((prev) => ({ ...prev, [selectedProfile.uid]: event.target.value }))}
-                                placeholder="Reason for cancellation"
-                                className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
-                              />
-                              <button
-                                type="submit"
-                                disabled={activeUid === selectedProfile.uid}
-                                className="px-4 py-2.5 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
-                              >
-                                {activeUid === selectedProfile.uid ? 'Updating…' : 'Cancel Verification'}
-                              </button>
-                            </form>
+                            {status !== 'verified' && (
+                              <form onSubmit={(event) => void handleCancelAndDelete(event, selectedProfile)} className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+                                <input
+                                  type="text"
+                                  value={cancelReasons[selectedProfile.uid] || ''}
+                                  onChange={(event) => setCancelReasons((prev) => ({ ...prev, [selectedProfile.uid]: event.target.value }))}
+                                  placeholder="Reason for cancellation"
+                                  className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                                />
+                                <button
+                                  type="submit"
+                                  disabled={activeUid === selectedProfile.uid}
+                                  className="px-4 py-2.5 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                                >
+                                  {activeUid === selectedProfile.uid ? 'Updating…' : 'Cancel Verification & Delete Account'}
+                                </button>
+                              </form>
+                            )}
                           </>
                         )}
                       </article>
