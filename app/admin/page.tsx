@@ -16,6 +16,15 @@ type AdminRegistration = {
   teamName: string
   submittedAt: string
 }
+type ContactMessage = {
+  id: string
+  name?: string
+  email?: string
+  subject?: string
+  message?: string
+  createdAt?: number
+  status?: string
+}
 
 const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
 
@@ -44,6 +53,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'nonVerified' | 'verified' | null>(null)
   const [nameSearch, setNameSearch] = useState('')
   const [registrationsByUid, setRegistrationsByUid] = useState<Record<string, AdminRegistration[]>>({})
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([])
+  const [loadingContactMessages, setLoadingContactMessages] = useState(true)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -98,6 +109,44 @@ export default function AdminPage() {
     }
 
     loadProfiles()
+  }, [authLoading, user, isAdmin])
+
+  useEffect(() => {
+    if (authLoading || !user || !isAdmin) return
+
+    const loadContactMessages = async () => {
+      setLoadingContactMessages(true)
+
+      try {
+        const firebaseAuth = getFirebaseAuth()
+        const token = await firebaseAuth?.currentUser?.getIdToken(true)
+        if (!token) {
+          setLoadingContactMessages(false)
+          return
+        }
+
+        const response = await fetch('/api/admin/contact-messages', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(payload.error || 'Failed to load contact messages.')
+        }
+
+        const payload = (await response.json()) as { items?: ContactMessage[] }
+        setContactMessages(payload.items ?? [])
+      } catch (err) {
+        setError(toAdminError(err, 'Failed to load contact messages.'))
+      } finally {
+        setLoadingContactMessages(false)
+      }
+    }
+
+    void loadContactMessages()
   }, [authLoading, user, isAdmin])
 
   const grouped = useMemo(() => {
@@ -427,6 +476,34 @@ export default function AdminPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 text-sm">{error}</div>
         )}
+
+        <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+          <h2 className="text-2xl font-bold text-gray-900">Contact Messages</h2>
+          <p className="text-sm text-gray-600 mt-1">Messages submitted from the website Contact Us form.</p>
+
+          {loadingContactMessages ? (
+            <p className="text-sm text-gray-600 mt-4">Loading contact messages…</p>
+          ) : contactMessages.length === 0 ? (
+            <p className="text-sm text-gray-600 mt-4">No contact messages yet.</p>
+          ) : (
+            <div className="mt-4 space-y-3 max-h-[320px] overflow-auto pr-1">
+              {contactMessages.map((entry) => (
+                <article key={entry.id} className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{entry.subject || 'No subject'}</p>
+                      <p className="text-xs text-gray-600 mt-1">{entry.name || 'Unknown'} • {entry.email || 'No email'}</p>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'Unknown date'}
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">{entry.message || 'No message content.'}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         {loadingRows ? (
           <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">Loading profiles…</section>
