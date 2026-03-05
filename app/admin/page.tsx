@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
 import { useAuth, UserProfile } from '@/components/AuthProvider'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
+import { defaultSiteContactSettings } from '@/lib/siteContact'
 
 type AdminProfileRow = UserProfile & { uid: string }
 type AdminRegistration = {
@@ -40,12 +41,12 @@ type SiteContactSettings = {
   officeHours: string
 }
 
-const defaultSiteContactSettings: SiteContactSettings = {
-  address: 'Address not updated yet',
-  phonePrimary: '01754496926',
-  phoneSecondary: '01750964611',
-  email: 'info.zerocomps@gmail.com',
-  officeHours: 'Closed',
+const defaultSiteContactFormValues: SiteContactSettings = {
+  address: defaultSiteContactSettings.address,
+  phonePrimary: defaultSiteContactSettings.phones[0] || '',
+  phoneSecondary: defaultSiteContactSettings.phones[1] || '',
+  email: defaultSiteContactSettings.email,
+  officeHours: defaultSiteContactSettings.officeHours,
 }
 
 const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
@@ -81,7 +82,7 @@ export default function AdminPage() {
   const [selectedContactId, setSelectedContactId] = useState('')
   const [replyDraft, setReplyDraft] = useState('')
   const [isSendingReply, setIsSendingReply] = useState(false)
-  const [siteContactSettings, setSiteContactSettings] = useState<SiteContactSettings>(defaultSiteContactSettings)
+  const [siteContactSettings, setSiteContactSettings] = useState<SiteContactSettings>(defaultSiteContactFormValues)
   const [loadingSiteContactSettings, setLoadingSiteContactSettings] = useState(true)
   const [savingSiteContactSettings, setSavingSiteContactSettings] = useState(false)
   const [siteContactMessage, setSiteContactMessage] = useState('')
@@ -210,11 +211,11 @@ export default function AdminPage() {
 
         const phones = payload.settings?.phones ?? []
         setSiteContactSettings({
-          address: payload.settings?.address || defaultSiteContactSettings.address,
-          phonePrimary: phones[0] || defaultSiteContactSettings.phonePrimary,
+          address: payload.settings?.address || defaultSiteContactFormValues.address,
+          phonePrimary: phones[0] || defaultSiteContactFormValues.phonePrimary,
           phoneSecondary: phones[1] || '',
-          email: payload.settings?.email || defaultSiteContactSettings.email,
-          officeHours: payload.settings?.officeHours || defaultSiteContactSettings.officeHours,
+          email: payload.settings?.email || defaultSiteContactFormValues.email,
+          officeHours: payload.settings?.officeHours || defaultSiteContactFormValues.officeHours,
         })
       } catch (err) {
         setError(toAdminError(err, 'Failed to load contact settings.'))

@@ -1,17 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getFirebaseAdminAuth, getFirebaseAdminDb } from '@/lib/firebaseAdmin'
+import { defaultSiteContactSettings } from '@/lib/siteContact'
 
 export const runtime = 'nodejs'
 
 const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
 const SETTINGS_DOC_PATH = 'siteSettings/contact'
-
-const DEFAULT_CONTACT_SETTINGS = {
-  address: 'Address not updated yet',
-  phones: ['01754496926', '01750964611'],
-  email: 'info.zerocomps@gmail.com',
-  officeHours: 'Closed',
-}
 
 type ContactSettingsPayload = {
   address?: string
@@ -51,14 +45,14 @@ async function requireAdmin(request: Request) {
 
 function normalizeSettings(data: Record<string, unknown> | undefined) {
   return {
-    address: String(data?.address || DEFAULT_CONTACT_SETTINGS.address),
+    address: String(data?.address || defaultSiteContactSettings.address),
     phones: Array.isArray(data?.phones)
       ? data?.phones
           .map((phone) => String(phone || '').trim())
           .filter(Boolean)
-      : DEFAULT_CONTACT_SETTINGS.phones,
-    email: String(data?.email || DEFAULT_CONTACT_SETTINGS.email),
-    officeHours: String(data?.officeHours || DEFAULT_CONTACT_SETTINGS.officeHours),
+      : defaultSiteContactSettings.phones,
+    email: String(data?.email || defaultSiteContactSettings.email),
+    officeHours: String(data?.officeHours || defaultSiteContactSettings.officeHours),
   }
 }
 
@@ -95,7 +89,7 @@ export async function POST(request: Request) {
 
     await adminDb.doc(SETTINGS_DOC_PATH).set(
       {
-        address: address || DEFAULT_CONTACT_SETTINGS.address,
+        address: address || defaultSiteContactSettings.address,
         phones,
         email,
         officeHours,

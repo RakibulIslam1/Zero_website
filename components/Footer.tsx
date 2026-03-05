@@ -1,7 +1,22 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { Github, Twitter, Linkedin, Instagram } from 'lucide-react'
+import { defaultSiteContactSettings, loadSiteContactSettings, SiteContactSettings } from '@/lib/siteContact'
 
 export default function Footer() {
+  const [settings, setSettings] = useState<SiteContactSettings>(defaultSiteContactSettings)
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const loadedSettings = await loadSiteContactSettings()
+      setSettings(loadedSettings)
+    }
+
+    void loadSettings()
+  }, [])
+
   return (
     <footer className="bg-gray-900 dark:bg-black text-gray-300 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -52,10 +67,12 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">Contact</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li>123 Innovation Street</li>
-              <li>Tech City, TC 10001</li>
-              <li>info@zero.company</li>
-              <li>+1 (555) 000-0000</li>
+              <li>{settings.address}</li>
+              <li>{settings.email}</li>
+              {settings.phones.map((phone) => (
+                <li key={phone}>{phone}</li>
+              ))}
+              <li>{settings.officeHours}</li>
             </ul>
           </div>
         </div>

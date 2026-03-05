@@ -4,36 +4,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import ContactForm from '@/components/ContactForm'
-
-type ContactSettings = {
-  address: string
-  phones: string[]
-  email: string
-  officeHours: string
-}
-
-const defaultSettings: ContactSettings = {
-  address: 'Address not updated yet',
-  phones: ['01754496926', '01750964611'],
-  email: 'info.zerocomps@gmail.com',
-  officeHours: 'Closed',
-}
+import { defaultSiteContactSettings, loadSiteContactSettings, SiteContactSettings } from '@/lib/siteContact'
 
 export default function ContactPage() {
-  const [settings, setSettings] = useState<ContactSettings>(defaultSettings)
+  const [settings, setSettings] = useState<SiteContactSettings>(defaultSiteContactSettings)
 
   useEffect(() => {
     const loadContactSettings = async () => {
-      try {
-        const response = await fetch('/api/site-contact', { method: 'GET' })
-        if (!response.ok) return
-
-        const payload = (await response.json()) as { settings?: ContactSettings }
-        if (!payload.settings) return
-        setSettings(payload.settings)
-      } catch {
-        // Keep default values if fetch fails.
-      }
+      const loadedSettings = await loadSiteContactSettings()
+      setSettings(loadedSettings)
     }
 
     void loadContactSettings()
