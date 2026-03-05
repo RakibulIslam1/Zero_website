@@ -85,6 +85,10 @@ async function getAuthenticatedUser(request: Request) {
   }
 }
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase()
+}
+
 export async function GET(request: Request) {
   try {
     const authedUser = await getAuthenticatedUser(request)
@@ -93,9 +97,20 @@ export async function GET(request: Request) {
     }
 
     const adminDb = getFirebaseAdminDb()
-    const snap = await adminDb.collection('contactMessages').where('userId', '==', authedUser.uid).get()
+    const email = normalizeEmail(authedUser.email || '')
 
-    const items = snap.docs
+    const [byUserIdSnap, byEmailLowerSnap, byEmailSnap] = await Promise.all([
+      adminDb.collection('contactMessages').where('userId', '==', authedUser.uid).get(),
+      email ? adminDb.collection('contactMessages').where('emailLower', '==', email).get() : Promise.resolve(null),
+      email ? adminDb.collection('contactMessages').where('email', '==', authedUser.email || '').get() : Promise.resolve(null),
+    ])
+
+    const uniqueDocs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>()
+    byUserIdSnap.docs.forEach((docItem) => uniqueDocs.set(docItem.id, docItem))
+    byEmailLowerSnap?.docs.forEach((docItem) => uniqueDocs.set(docItem.id, docItem))
+    byEmailSnap?.docs.forEach((docItem) => uniqueDocs.set(docItem.id, docItem))
+
+    const items = Array.from(uniqueDocs.values())
       .map((docItem) => normalizeThread(docItem.id, docItem.data() as Record<string, unknown>))
       .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
 
@@ -137,7 +152,15 @@ export async function POST(request: Request) {
       }
 
       const existingData = threadSnap.data() as Record<string, unknown>
-      if (authedUser?.uid && existingData.userId && existingData.userId !== authedUser.uid) {
+      const ownerUserId = String(existingData.userId || '')
+      const ownerEmail = normalizeEmail(String(existingData.email || ''))
+      const requesterEmail = normalizeEmail(authedUser?.email || '')
+
+      if (authedUser?.uid && ownerUserId && ownerUserId !== authedUser.uid) {
+        return NextResponse.json({ error: 'You are not allowed to reply to this conversation.' }, { status: 403 })
+      }
+
+      if (authedUser?.uid && !ownerUserId && ownerEmail && requesterEmail && ownerEmail !== requesterEmail) {
         return NextResponse.json({ error: 'You are not allowed to reply to this conversation.' }, { status: 403 })
       }
 
@@ -157,6 +180,8 @@ export async function POST(request: Request) {
           messages: nextMessages,
           updatedAt: now,
           status: 'open',
+          ...(authedUser?.uid && !ownerUserId ? { userId: authedUser.uid } : {}),
+          ...(ownerEmail ? { emailLower: ownerEmail } : {}),
         },
         { merge: true },
       )
@@ -172,6 +197,7 @@ export async function POST(request: Request) {
       userId: authedUser?.uid || null,
       name,
       email,
+      emailLower: normalizeEmail(email),
       subject,
       createdAt: now,
       updatedAt: now,
