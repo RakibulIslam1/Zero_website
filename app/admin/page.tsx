@@ -32,6 +32,22 @@ type ContactMessage = {
   }>
 }
 
+type SiteContactSettings = {
+  address: string
+  phonePrimary: string
+  phoneSecondary: string
+  email: string
+  officeHours: string
+}
+
+const defaultSiteContactSettings: SiteContactSettings = {
+  address: 'Address not updated yet',
+  phonePrimary: '01754496926',
+  phoneSecondary: '01750964611',
+  email: 'info.zerocomps@gmail.com',
+  officeHours: 'Closed',
+}
+
 const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
 
 export default function AdminPage() {
@@ -61,10 +77,14 @@ export default function AdminPage() {
   const [registrationsByUid, setRegistrationsByUid] = useState<Record<string, AdminRegistration[]>>({})
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([])
   const [loadingContactMessages, setLoadingContactMessages] = useState(true)
-  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages'>('overview')
+  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages' | 'contactSettings'>('overview')
   const [selectedContactId, setSelectedContactId] = useState('')
   const [replyDraft, setReplyDraft] = useState('')
   const [isSendingReply, setIsSendingReply] = useState(false)
+  const [siteContactSettings, setSiteContactSettings] = useState<SiteContactSettings>(defaultSiteContactSettings)
+  const [loadingSiteContactSettings, setLoadingSiteContactSettings] = useState(true)
+  const [savingSiteContactSettings, setSavingSiteContactSettings] = useState(false)
+  const [siteContactMessage, setSiteContactMessage] = useState('')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -161,6 +181,49 @@ export default function AdminPage() {
     }
 
     void loadContactMessages()
+  }, [authLoading, user, isAdmin])
+
+  useEffect(() => {
+    if (authLoading || !user || !isAdmin) return
+
+    const loadSiteContactSettings = async () => {
+      setLoadingSiteContactSettings(true)
+
+      try {
+        const response = await fetch('/api/site-contact', {
+          method: 'GET',
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(payload.error || 'Failed to load contact settings.')
+        }
+
+        const payload = (await response.json()) as {
+          settings?: {
+            address?: string
+            phones?: string[]
+            email?: string
+            officeHours?: string
+          }
+        }
+
+        const phones = payload.settings?.phones ?? []
+        setSiteContactSettings({
+          address: payload.settings?.address || defaultSiteContactSettings.address,
+          phonePrimary: phones[0] || defaultSiteContactSettings.phonePrimary,
+          phoneSecondary: phones[1] || '',
+          email: payload.settings?.email || defaultSiteContactSettings.email,
+          officeHours: payload.settings?.officeHours || defaultSiteContactSettings.officeHours,
+        })
+      } catch (err) {
+        setError(toAdminError(err, 'Failed to load contact settings.'))
+      } finally {
+        setLoadingSiteContactSettings(false)
+      }
+    }
+
+    void loadSiteContactSettings()
   }, [authLoading, user, isAdmin])
 
   const grouped = useMemo(() => {
@@ -464,6 +527,49 @@ export default function AdminPage() {
     }
   }
 
+  const handleSaveSiteContactSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError(null)
+    setSiteContactMessage('')
+    setSavingSiteContactSettings(true)
+
+    try {
+      const token = await getFirebaseAuth()?.currentUser?.getIdToken(true)
+      if (!token) {
+        throw new Error('You must be logged in as admin to update contact settings.')
+      }
+
+      const phones = [siteContactSettings.phonePrimary, siteContactSettings.phoneSecondary]
+        .map((phone) => phone.trim())
+        .filter(Boolean)
+
+      const response = await fetch('/api/site-contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          address: siteContactSettings.address,
+          phones,
+          email: siteContactSettings.email,
+          officeHours: siteContactSettings.officeHours,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to update contact settings.')
+      }
+
+      setSiteContactMessage('Contact information updated successfully.')
+    } catch (err) {
+      setError(toAdminError(err, 'Failed to update contact settings.'))
+    } finally {
+      setSavingSiteContactSettings(false)
+    }
+  }
+
   if (authLoading) {
     return (
       <main className="pt-28 pb-16 px-4">
@@ -567,35 +673,53 @@ export default function AdminPage() {
             <>
               <h2 className="text-2xl font-bold text-gray-900">Choose Section</h2>
               <p className="text-sm text-gray-600 mt-1">Open one section at a time for focused review.</p>
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setActiveSection('profiles')}
-                  className="rounded-2xl border border-[#efd6d1] bg-[#fff4ef] px-5 py-4 text-left hover:bg-[#ffe8e0] transition-colors"
-                >
-                  <p className="text-base font-semibold text-gray-900">Profile Section</p>
-                  <p className="text-xs text-gray-600 mt-1">Verify, cancel, and manage profile records.</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveSection('messages')}
-                  className="rounded-2xl border border-[#cdebd4] bg-[#edf9f0] px-5 py-4 text-left hover:bg-[#dff5e7] transition-colors"
-                >
-                  <p className="text-base font-semibold text-gray-900">Message Section</p>
-                  <p className="text-xs text-gray-600 mt-1">Read contact threads and send admin replies.</p>
-                </button>
+              <div className="mt-5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('profiles')}
+                    className="rounded-2xl border border-[#efd6d1] bg-[#fff4ef] px-5 py-4 text-left hover:bg-[#ffe8e0] transition-colors"
+                  >
+                    <p className="text-base font-semibold text-gray-900">Profile Section</p>
+                    <p className="text-xs text-gray-600 mt-1">Verify, cancel, and manage profile records.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('messages')}
+                    className="rounded-2xl border border-[#cdebd4] bg-[#edf9f0] px-5 py-4 text-left hover:bg-[#dff5e7] transition-colors"
+                  >
+                    <p className="text-base font-semibold text-gray-900">Message Section</p>
+                    <p className="text-xs text-gray-600 mt-1">Read contact threads and send admin replies.</p>
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('contactSettings')}
+                    className="rounded-2xl border border-[#d7dff5] bg-[#eef3ff] px-5 py-4 text-left hover:bg-[#e2ebff] transition-colors"
+                  >
+                    <p className="text-base font-semibold text-gray-900">Contact Settings Section</p>
+                    <p className="text-xs text-gray-600 mt-1">Update phone, email, office hours, and address shown on Contact Us page.</p>
+                  </button>
+                </div>
               </div>
             </>
           ) : (
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {activeSection === 'profiles' ? 'Profile Section' : 'Message Section'}
+                  {activeSection === 'profiles'
+                    ? 'Profile Section'
+                    : activeSection === 'messages'
+                      ? 'Message Section'
+                      : 'Contact Settings Section'}
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   {activeSection === 'profiles'
                     ? 'Review verification and account details.'
-                    : 'Reply to users and continue conversation threads.'}
+                    : activeSection === 'messages'
+                      ? 'Reply to users and continue conversation threads.'
+                      : 'Edit public contact and address details at any time.'}
                 </p>
               </div>
               <button
@@ -690,6 +814,94 @@ export default function AdminPage() {
                   )}
                 </div>
               </div>
+            )}
+          </section>
+        )}
+
+        {activeSection === 'contactSettings' && (
+          <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+            {loadingSiteContactSettings ? (
+              <p className="text-sm text-gray-600">Loading contact settings...</p>
+            ) : (
+              <form onSubmit={handleSaveSiteContactSettings} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                  <input
+                    type="text"
+                    value={siteContactSettings.address}
+                    onChange={(event) =>
+                      setSiteContactSettings((prev) => ({ ...prev, address: event.target.value }))
+                    }
+                    className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    placeholder="Office address"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone 1</label>
+                    <input
+                      type="text"
+                      value={siteContactSettings.phonePrimary}
+                      onChange={(event) =>
+                        setSiteContactSettings((prev) => ({ ...prev, phonePrimary: event.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                      placeholder="Primary phone number"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone 2</label>
+                    <input
+                      type="text"
+                      value={siteContactSettings.phoneSecondary}
+                      onChange={(event) =>
+                        setSiteContactSettings((prev) => ({ ...prev, phoneSecondary: event.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                      placeholder="Secondary phone number"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input
+                      type="email"
+                      value={siteContactSettings.email}
+                      onChange={(event) =>
+                        setSiteContactSettings((prev) => ({ ...prev, email: event.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                      placeholder="Public contact email"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Office Hours</label>
+                    <input
+                      type="text"
+                      value={siteContactSettings.officeHours}
+                      onChange={(event) =>
+                        setSiteContactSettings((prev) => ({ ...prev, officeHours: event.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                      placeholder="Office hours"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={savingSiteContactSettings}
+                    className="px-5 py-2.5 rounded-2xl bg-accent text-white font-semibold hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                  >
+                    {savingSiteContactSettings ? 'Saving...' : 'Save Contact Settings'}
+                  </button>
+                  {siteContactMessage && <p className="text-sm text-green-700">{siteContactMessage}</p>}
+                </div>
+              </form>
             )}
           </section>
         )}

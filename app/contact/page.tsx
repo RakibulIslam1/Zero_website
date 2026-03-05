@@ -1,17 +1,54 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import ContactForm from '@/components/ContactForm'
 
-const contactInfo = [
-  { icon: MapPin, label: 'Address', value: '123 Innovation Street, Tech City, TC 10001' },
-  { icon: Phone, label: 'Phone', value: '+1 (555) 000-0000' },
-  { icon: Mail, label: 'Email', value: 'info@zero.company' },
-  { icon: Clock, label: 'Office Hours', value: 'Mon–Fri, 9:00 AM – 6:00 PM' },
-]
+type ContactSettings = {
+  address: string
+  phones: string[]
+  email: string
+  officeHours: string
+}
+
+const defaultSettings: ContactSettings = {
+  address: 'Address not updated yet',
+  phones: ['01754496926', '01750964611'],
+  email: 'info.zerocomps@gmail.com',
+  officeHours: 'Closed',
+}
 
 export default function ContactPage() {
+  const [settings, setSettings] = useState<ContactSettings>(defaultSettings)
+
+  useEffect(() => {
+    const loadContactSettings = async () => {
+      try {
+        const response = await fetch('/api/site-contact', { method: 'GET' })
+        if (!response.ok) return
+
+        const payload = (await response.json()) as { settings?: ContactSettings }
+        if (!payload.settings) return
+        setSettings(payload.settings)
+      } catch {
+        // Keep default values if fetch fails.
+      }
+    }
+
+    void loadContactSettings()
+  }, [])
+
+  const contactInfo = useMemo(
+    () => [
+      { icon: MapPin, label: 'Address', values: [settings.address] },
+      { icon: Phone, label: 'Phone', values: settings.phones },
+      { icon: Mail, label: 'Email', values: [settings.email] },
+      { icon: Clock, label: 'Office Hours', values: [settings.officeHours] },
+    ],
+    [settings],
+  )
+
   return (
     <div className="pt-16">
       {/* Hero */}
@@ -65,7 +102,11 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{info.label}</p>
-                      <p className="text-gray-900 dark:text-white font-medium">{info.value}</p>
+                      {info.values.map((value) => (
+                        <p key={value} className="text-gray-900 dark:text-white font-medium">
+                          {value}
+                        </p>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -76,7 +117,7 @@ export default function ContactPage() {
                 <div className="text-center text-gray-400 dark:text-gray-600">
                   <MapPin size={40} className="mx-auto mb-2" />
                   <p className="text-sm">Map placeholder</p>
-                  <p className="text-xs">123 Innovation Street, Tech City</p>
+                  <p className="text-xs">{settings.address}</p>
                 </div>
               </div>
             </motion.div>
