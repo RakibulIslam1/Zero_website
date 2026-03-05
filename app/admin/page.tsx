@@ -21,9 +21,15 @@ type ContactMessage = {
   name?: string
   email?: string
   subject?: string
-  message?: string
   createdAt?: number
+  updatedAt?: number
   status?: string
+  messages?: Array<{
+    sender: 'user' | 'admin'
+    text: string
+    createdAt: number
+    senderName?: string
+  }>
 }
 
 const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
@@ -55,6 +61,10 @@ export default function AdminPage() {
   const [registrationsByUid, setRegistrationsByUid] = useState<Record<string, AdminRegistration[]>>({})
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([])
   const [loadingContactMessages, setLoadingContactMessages] = useState(true)
+  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages'>('overview')
+  const [selectedContactId, setSelectedContactId] = useState('')
+  const [replyDraft, setReplyDraft] = useState('')
+  const [isSendingReply, setIsSendingReply] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -138,7 +148,11 @@ export default function AdminPage() {
         }
 
         const payload = (await response.json()) as { items?: ContactMessage[] }
-        setContactMessages(payload.items ?? [])
+        const items = payload.items ?? []
+        setContactMessages(items)
+        if (items.length > 0) {
+          setSelectedContactId((current) => (current ? current : items[0].id))
+        }
       } catch (err) {
         setError(toAdminError(err, 'Failed to load contact messages.'))
       } finally {
@@ -160,6 +174,11 @@ export default function AdminPage() {
   const selectedProfile = useMemo(
     () => rows.find((row) => row.uid === selectedUid) ?? null,
     [rows, selectedUid],
+  )
+
+  const selectedContact = useMemo(
+    () => contactMessages.find((entry) => entry.id === selectedContactId) ?? null,
+    [contactMessages, selectedContactId],
   )
 
   const toAdminError = (error: unknown, fallback: string) => {
@@ -379,6 +398,72 @@ export default function AdminPage() {
     }
   }
 
+  const handleSendContactReply = async () => {
+    if (!selectedContact) {
+      setError('Select a message thread to reply.')
+      return
+    }
+
+    const text = replyDraft.trim()
+    if (!text) {
+      setError('Reply cannot be empty.')
+      return
+    }
+
+    setError(null)
+    setIsSendingReply(true)
+
+    try {
+      const token = await getFirebaseAuth()?.currentUser?.getIdToken(true)
+      if (!token) {
+        throw new Error('You must be logged in as admin to send replies.')
+      }
+
+      const response = await fetch('/api/admin/contact-messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          contactId: selectedContact.id,
+          reply: text,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to send reply.')
+      }
+
+      const now = Date.now()
+      setContactMessages((prev) =>
+        prev.map((entry) =>
+          entry.id === selectedContact.id
+            ? {
+                ...entry,
+                updatedAt: now,
+                messages: [
+                  ...(entry.messages ?? []),
+                  {
+                    sender: 'admin',
+                    text,
+                    createdAt: now,
+                    senderName: user?.fullName || user?.email || 'Admin',
+                  },
+                ],
+              }
+            : entry,
+        ),
+      )
+      setReplyDraft('')
+    } catch (err) {
+      setError(toAdminError(err, 'Failed to send reply.'))
+    } finally {
+      setIsSendingReply(false)
+    }
+  }
+
   if (authLoading) {
     return (
       <main className="pt-28 pb-16 px-4">
@@ -478,302 +563,406 @@ export default function AdminPage() {
         )}
 
         <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
-          <h2 className="text-2xl font-bold text-gray-900">Contact Messages</h2>
-          <p className="text-sm text-gray-600 mt-1">Messages submitted from the website Contact Us form.</p>
-
-          {loadingContactMessages ? (
-            <p className="text-sm text-gray-600 mt-4">Loading contact messages…</p>
-          ) : contactMessages.length === 0 ? (
-            <p className="text-sm text-gray-600 mt-4">No contact messages yet.</p>
+          {activeSection === 'overview' ? (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900">Choose Section</h2>
+              <p className="text-sm text-gray-600 mt-1">Open one section at a time for focused review.</p>
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('profiles')}
+                  className="rounded-2xl border border-[#efd6d1] bg-[#fff4ef] px-5 py-4 text-left hover:bg-[#ffe8e0] transition-colors"
+                >
+                  <p className="text-base font-semibold text-gray-900">Profile Section</p>
+                  <p className="text-xs text-gray-600 mt-1">Verify, cancel, and manage profile records.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('messages')}
+                  className="rounded-2xl border border-[#cdebd4] bg-[#edf9f0] px-5 py-4 text-left hover:bg-[#dff5e7] transition-colors"
+                >
+                  <p className="text-base font-semibold text-gray-900">Message Section</p>
+                  <p className="text-xs text-gray-600 mt-1">Read contact threads and send admin replies.</p>
+                </button>
+              </div>
+            </>
           ) : (
-            <div className="mt-4 space-y-3 max-h-[320px] overflow-auto pr-1">
-              {contactMessages.map((entry) => (
-                <article key={entry.id} className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{entry.subject || 'No subject'}</p>
-                      <p className="text-xs text-gray-600 mt-1">{entry.name || 'Unknown'} • {entry.email || 'No email'}</p>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'Unknown date'}
-                    </p>
-                  </div>
-                  <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">{entry.message || 'No message content.'}</p>
-                </article>
-              ))}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {activeSection === 'profiles' ? 'Profile Section' : 'Message Section'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {activeSection === 'profiles'
+                    ? 'Review verification and account details.'
+                    : 'Reply to users and continue conversation threads.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveSection('overview')}
+                className="px-4 py-2 rounded-xl border border-[#e8cfc9] bg-white text-sm font-semibold text-gray-700 hover:bg-[#fff4ef] transition-colors"
+              >
+                Back
+              </button>
             </div>
           )}
         </section>
 
-        {loadingRows ? (
-          <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">Loading profiles…</section>
-        ) : rows.length === 0 ? (
-          <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">No profiles found.</section>
-        ) : (
-          <>
-            {lightboxUrl && (
-              <div
-                className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-                onClick={() => setLightboxUrl(null)}
-              >
-                <div
-                  className="relative max-w-3xl w-full max-h-[90vh] flex items-center justify-center"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={lightboxUrl} alt={lightboxAlt} className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl" />
-                  <button
-                    type="button"
-                    onClick={() => setLightboxUrl(null)}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 text-gray-900 hover:bg-white flex items-center justify-center font-bold text-xl shadow"
-                    aria-label="Close preview"
-                  >
-                    ×
-                  </button>
+        {activeSection === 'messages' && (
+          <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+            <h3 className="text-xl font-bold text-gray-900">Contact Messages</h3>
+            <p className="text-sm text-gray-600 mt-1">Messages submitted from the website Contact Us form.</p>
+
+            {loadingContactMessages ? (
+              <p className="text-sm text-gray-600 mt-4">Loading contact messages...</p>
+            ) : contactMessages.length === 0 ? (
+              <p className="text-sm text-gray-600 mt-4">No contact messages yet.</p>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2 max-h-[380px] overflow-auto pr-1">
+                  {contactMessages.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => setSelectedContactId(entry.id)}
+                      className={`w-full text-left rounded-2xl border px-4 py-3 transition-colors ${
+                        selectedContactId === entry.id
+                          ? 'border-accent bg-[#fff4ef]'
+                          : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-gray-900">{entry.subject || 'No subject'}</p>
+                      <p className="text-xs text-gray-600 mt-1">{entry.name || 'Unknown'} | {entry.email || 'No email'}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {entry.updatedAt || entry.createdAt
+                          ? new Date(entry.updatedAt || entry.createdAt || 0).toLocaleString()
+                          : 'Unknown date'}
+                      </p>
+                    </button>
+                  ))}
                 </div>
-              </div>
-            )}
 
-            <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm p-4">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setActiveTab(activeTab === 'nonVerified' ? null : 'nonVerified'); setNameSearch(''); setSelectedUid('') }}
-                  className={`flex-1 py-3 rounded-2xl font-semibold text-sm transition-colors border ${
-                    activeTab === 'nonVerified'
-                      ? 'bg-accent text-white border-accent'
-                      : 'bg-[#fff4ef] text-accent border-[#f1d9d2] hover:bg-[#ffe8e0]'
-                  }`}
-                >
-                  Non-Verified ({grouped.nonVerified.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setActiveTab(activeTab === 'verified' ? null : 'verified'); setNameSearch(''); setSelectedUid('') }}
-                  className={`flex-1 py-3 rounded-2xl font-semibold text-sm transition-colors border ${
-                    activeTab === 'verified'
-                      ? 'bg-green-600 text-white border-green-600'
-                      : 'bg-[#edf9f0] text-green-700 border-[#cdebd4] hover:bg-[#d6f5df]'
-                  }`}
-                >
-                  Verified ({grouped.verified.length})
-                </button>
-              </div>
-            </section>
-
-            <div className="flex flex-col lg:flex-row gap-6">
-              <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm w-full lg:w-2/5">
-
-                {/* LEFT: search + list */}
-                <div className="p-5 flex flex-col gap-3">
-                  {activeTab === null ? (
-                    <p className="text-sm text-gray-500 text-center py-10">Select a tab above to view accounts.</p>
+                <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                  {!selectedContact ? (
+                    <p className="text-sm text-gray-600">Select a thread to view and reply.</p>
                   ) : (
                     <>
-                      <input
-                        type="text"
-                        value={nameSearch}
-                        onChange={(e) => setNameSearch(e.target.value)}
-                        placeholder="Search by name…"
-                        className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
-                      />
-                      <div className="space-y-2 overflow-auto pr-1" style={{ maxHeight: 'calc(100vh - 420px)', minHeight: '200px' }}>
-                        {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified)
-                          .filter((a) =>
-                            nameSearch.trim() === '' ||
-                            (a.fullName ?? '').toLowerCase().includes(nameSearch.toLowerCase())
-                          )
-                          .map((account) => (
-                            <button
-                              key={account.uid}
-                              type="button"
-                              onClick={() => setSelectedUid(account.uid)}
-                              className={`w-full text-left rounded-2xl border px-3 py-2.5 transition-colors ${
-                                selectedProfile?.uid === account.uid
-                                  ? 'border-accent bg-[#fff4ef]'
-                                  : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'
-                              }`}
-                            >
-                              <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
-                              <p className="text-xs text-gray-500">{account.email}</p>
-                            </button>
-                          ))
-                        }
-                        {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified)
-                          .filter((a) => nameSearch.trim() === '' || (a.fullName ?? '').toLowerCase().includes(nameSearch.toLowerCase()))
-                          .length === 0 && (
-                          <p className="text-sm text-gray-500">
-                            {nameSearch.trim() ? 'No accounts match your search.' : activeTab === 'nonVerified' ? 'No non-verified accounts.' : 'No verified accounts yet.'}
-                          </p>
-                        )}
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-gray-900">{selectedContact.subject || 'No subject'}</p>
+                        <p className="text-xs text-gray-600 mt-1">{selectedContact.name || 'Unknown'} | {selectedContact.email || 'No email'}</p>
+                      </div>
+
+                      <div className="space-y-2 max-h-[260px] overflow-auto pr-1">
+                        {(selectedContact.messages ?? []).map((entry, index) => (
+                          <div
+                            key={`${entry.createdAt}-${index}`}
+                            className={`rounded-xl px-3 py-2 text-sm ${
+                              entry.sender === 'admin'
+                                ? 'bg-[#edf9f0] text-green-800 border border-[#cdebd4]'
+                                : 'bg-white text-gray-800 border border-[#efd6d1]'
+                            }`}
+                          >
+                            <p className="text-xs font-semibold mb-1">{entry.sender === 'admin' ? 'Admin' : 'User'}</p>
+                            <p className="whitespace-pre-wrap">{entry.text}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          type="text"
+                          value={replyDraft}
+                          onChange={(event) => setReplyDraft(event.target.value)}
+                          placeholder="Write admin reply..."
+                          className="flex-1 px-3 py-2 rounded-xl border border-[#e8cfc9] text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleSendContactReply()}
+                          disabled={isSendingReply}
+                          className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-60"
+                        >
+                          {isSendingReply ? 'Sending...' : 'Reply'}
+                        </button>
                       </div>
                     </>
                   )}
                 </div>
-              </section>
+              </div>
+            )}
+          </section>
+        )}
 
-                {/* RIGHT: detail panel */}
-              <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm w-full lg:w-3/5">
-                <div className="p-5 overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
-                {!selectedProfile ? (
-                  <p className="text-sm text-gray-500 py-8 text-center">Select an account from the list to review its details.</p>
-                ) : (
-                  (() => {
-                    const status = selectedProfile.verificationStatus || 'pending'
-                    const badgeClass =
-                      status === 'verified'
-                        ? 'bg-[#edf9f0] border-[#cdebd4] text-green-700'
-                        : status === 'cancelled'
-                          ? 'bg-[#fff0f0] border-[#f5d1d1] text-red-700'
-                          : 'bg-[#fff4ef] border-[#f1d9d2] text-accent'
-                    const isBuiltInAdminProfile = selectedProfile.email?.toLowerCase() === SUPER_ADMIN_EMAIL
-
-                    return (
-                      <article>
-                        <div className="flex flex-wrap justify-between gap-3 items-start">
-                          <div>
-                            <h2 className="text-xl font-bold text-gray-900">{selectedProfile.fullName || 'Unnamed User'}</h2>
-                            <p className="text-gray-600 text-sm mt-1">{selectedProfile.email}</p>
-                            <p className="text-gray-600 text-sm">Phone: {selectedProfile.phone || 'Not provided'}</p>
-                            <p className="text-gray-600 text-sm">Education: {selectedProfile.educationLevel || 'Not provided'}</p>
-                            <p className="text-gray-600 text-sm">Institute: {selectedProfile.instituteName || 'Not provided'}</p>
-                            <p className="text-gray-600 text-sm">ID: {selectedProfile.idType === 'passport' ? 'Passport' : selectedProfile.idType === 'nid' ? 'NID' : 'Birth Registration'} • {selectedProfile.idNumber || 'Not provided'}</p>
-                          </div>
-                          <span className={`px-3 py-1 rounded-full border text-sm font-medium ${badgeClass}`}>
-                            {status === 'verified' ? 'Verified' : status === 'cancelled' ? 'Cancelled' : 'Pending'}
-                          </span>
-                        </div>
-
-                        <div className="mt-4 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
-                          <p className="text-sm font-semibold text-gray-800 mb-2">Registered Competitions</p>
-                          {(registrationsByUid[selectedProfile.uid] ?? []).length > 0 ? (
-                            <ul className="space-y-2">
-                              {(registrationsByUid[selectedProfile.uid] ?? []).map((entry, index) => (
-                                <li key={`${entry.competitionId}-${index}`} className="text-sm text-gray-700">
-                                  <span className="font-medium">{entry.competitionName || `Competition #${entry.competitionId}`}</span>
-                                  {entry.competitionDate ? ` • ${entry.competitionDate}` : ''}
-                                  {entry.teamName ? ` • Team: ${entry.teamName}` : ''}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-sm text-gray-600">No competition registrations found.</p>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-800 mb-2">Profile Photo</p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (selectedProfile.profilePhotoDataUrl) {
-                                  setLightboxAlt(`${selectedProfile.fullName ?? ''} profile photo`)
-                                  setLightboxUrl(selectedProfile.profilePhotoDataUrl)
-                                }
-                              }}
-                              className={`w-full max-w-[260px] aspect-square rounded-2xl overflow-hidden border border-[#edd4ce] bg-[#faf1ef] block ${
-                                selectedProfile.profilePhotoDataUrl
-                                  ? 'cursor-zoom-in hover:ring-2 hover:ring-accent/40 transition-all'
-                                  : 'cursor-default'
-                              }`}
-                              title={selectedProfile.profilePhotoDataUrl ? 'Click to enlarge' : undefined}
-                            >
-                              {selectedProfile.profilePhotoDataUrl ? (
-                                <Image
-                                  src={selectedProfile.profilePhotoDataUrl}
-                                  alt={`${selectedProfile.fullName} profile photo`}
-                                  width={260}
-                                  height={260}
-                                  className="w-full h-full object-cover pointer-events-none"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No image</div>
-                              )}
-                            </button>
-                          </div>
-
-                          <div>
-                            <p className="text-sm font-semibold text-gray-800 mb-2">ID Document</p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (selectedProfile.idDocumentPhotoDataUrl) {
-                                  setLightboxAlt(`${selectedProfile.fullName ?? ''} id document`)
-                                  setLightboxUrl(selectedProfile.idDocumentPhotoDataUrl)
-                                }
-                              }}
-                              className={`w-full max-w-[260px] aspect-square rounded-2xl overflow-hidden border border-[#edd4ce] bg-[#faf1ef] block ${
-                                selectedProfile.idDocumentPhotoDataUrl
-                                  ? 'cursor-zoom-in hover:ring-2 hover:ring-accent/40 transition-all'
-                                  : 'cursor-default'
-                              }`}
-                              title={selectedProfile.idDocumentPhotoDataUrl ? 'Click to enlarge' : undefined}
-                            >
-                              {selectedProfile.idDocumentPhotoDataUrl ? (
-                                <Image
-                                  src={selectedProfile.idDocumentPhotoDataUrl}
-                                  alt={`${selectedProfile.fullName} id document`}
-                                  width={260}
-                                  height={260}
-                                  className="w-full h-full object-cover pointer-events-none"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No document</div>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-
-                        {status === 'cancelled' && selectedProfile.verificationReason && (
-                          <p className="text-sm text-red-700 mt-4">Cancellation reason: {selectedProfile.verificationReason}</p>
-                        )}
-
-                        {isBuiltInAdminProfile ? (
-                          <p className="text-sm text-green-700 mt-5 font-medium">This account is permanently verified.</p>
-                        ) : (
-                          <>
-                            <div className="flex flex-wrap gap-3 mt-5">
-                              {status === 'pending' && (
-                                <button
-                                  type="button"
-                                  disabled={activeUid === selectedProfile.uid}
-                                  onClick={() => updateStatus(selectedProfile, 'verified')}
-                                  className="px-4 py-2.5 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
-                                >
-                                  {activeUid === selectedProfile.uid ? 'Updating…' : 'Verify'}
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                disabled={activeUid === selectedProfile.uid}
-                                onClick={() => void handleDeleteAccountData(selectedProfile)}
-                                className="px-4 py-2.5 rounded-2xl bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-60 transition-colors"
-                              >
-                                {activeUid === selectedProfile.uid ? 'Deleting…' : 'Delete Account Data'}
-                              </button>
-                            </div>
-
-                            {status !== 'verified' && (
-                              <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
-                                <input
-                                  type="text"
-                                  value={cancelReasons[selectedProfile.uid] || ''}
-                                  onChange={(event) => setCancelReasons((prev) => ({ ...prev, [selectedProfile.uid]: event.target.value }))}
-                                  placeholder="Reason for cancellation"
-                                  className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
-                                />
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </article>
-                    )
-                  })()
+        {activeSection === 'profiles' && (
+          <>
+            {loadingRows ? (
+              <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">Loading profiles...</section>
+            ) : rows.length === 0 ? (
+              <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm text-gray-600">No profiles found.</section>
+            ) : (
+              <>
+                {lightboxUrl && (
+                  <div
+                    className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+                    onClick={() => setLightboxUrl(null)}
+                  >
+                    <div
+                      className="relative max-w-3xl w-full max-h-[90vh] flex items-center justify-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={lightboxUrl} alt={lightboxAlt} className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl" />
+                      <button
+                        type="button"
+                        onClick={() => setLightboxUrl(null)}
+                        className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 text-gray-900 hover:bg-white flex items-center justify-center font-bold text-xl shadow"
+                        aria-label="Close preview"
+                      >
+                        x
+                      </button>
+                    </div>
+                  </div>
                 )}
+
+                <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm p-4">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab(activeTab === 'nonVerified' ? null : 'nonVerified'); setNameSearch(''); setSelectedUid('') }}
+                      className={`flex-1 py-3 rounded-2xl font-semibold text-sm transition-colors border ${
+                        activeTab === 'nonVerified'
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-[#fff4ef] text-accent border-[#f1d9d2] hover:bg-[#ffe8e0]'
+                      }`}
+                    >
+                      Non-Verified ({grouped.nonVerified.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab(activeTab === 'verified' ? null : 'verified'); setNameSearch(''); setSelectedUid('') }}
+                      className={`flex-1 py-3 rounded-2xl font-semibold text-sm transition-colors border ${
+                        activeTab === 'verified'
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-[#edf9f0] text-green-700 border-[#cdebd4] hover:bg-[#d6f5df]'
+                      }`}
+                    >
+                      Verified ({grouped.verified.length})
+                    </button>
+                  </div>
+                </section>
+
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm w-full lg:w-2/5">
+                    <div className="p-5 flex flex-col gap-3">
+                      {activeTab === null ? (
+                        <p className="text-sm text-gray-500 text-center py-10">Select a tab above to view accounts.</p>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            value={nameSearch}
+                            onChange={(e) => setNameSearch(e.target.value)}
+                            placeholder="Search by name..."
+                            className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                          />
+                          <div className="space-y-2 overflow-auto pr-1" style={{ maxHeight: 'calc(100vh - 420px)', minHeight: '200px' }}>
+                            {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified)
+                              .filter((a) =>
+                                nameSearch.trim() === '' ||
+                                (a.fullName ?? '').toLowerCase().includes(nameSearch.toLowerCase())
+                              )
+                              .map((account) => (
+                                <button
+                                  key={account.uid}
+                                  type="button"
+                                  onClick={() => setSelectedUid(account.uid)}
+                                  className={`w-full text-left rounded-2xl border px-3 py-2.5 transition-colors ${
+                                    selectedProfile?.uid === account.uid
+                                      ? 'border-accent bg-[#fff4ef]'
+                                      : 'border-[#efd6d1] bg-[#fff9f8] hover:bg-[#fff4ef]'
+                                  }`}
+                                >
+                                  <p className="text-sm font-semibold text-gray-800">{account.fullName || 'Unnamed User'}</p>
+                                  <p className="text-xs text-gray-500">{account.email}</p>
+                                </button>
+                              ))}
+                            {(activeTab === 'nonVerified' ? grouped.nonVerified : grouped.verified)
+                              .filter((a) => nameSearch.trim() === '' || (a.fullName ?? '').toLowerCase().includes(nameSearch.toLowerCase()))
+                              .length === 0 && (
+                              <p className="text-sm text-gray-500">
+                                {nameSearch.trim() ? 'No accounts match your search.' : activeTab === 'nonVerified' ? 'No non-verified accounts.' : 'No verified accounts yet.'}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="bg-white rounded-3xl border border-[#e8cfc9] shadow-sm w-full lg:w-3/5">
+                    <div className="p-5 overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+                      {!selectedProfile ? (
+                        <p className="text-sm text-gray-500 py-8 text-center">Select an account from the list to review its details.</p>
+                      ) : (
+                        (() => {
+                          const status = selectedProfile.verificationStatus || 'pending'
+                          const badgeClass =
+                            status === 'verified'
+                              ? 'bg-[#edf9f0] border-[#cdebd4] text-green-700'
+                              : status === 'cancelled'
+                                ? 'bg-[#fff0f0] border-[#f5d1d1] text-red-700'
+                                : 'bg-[#fff4ef] border-[#f1d9d2] text-accent'
+                          const isBuiltInAdminProfile = selectedProfile.email?.toLowerCase() === SUPER_ADMIN_EMAIL
+
+                          return (
+                            <article>
+                              <div className="flex flex-wrap justify-between gap-3 items-start">
+                                <div>
+                                  <h2 className="text-xl font-bold text-gray-900">{selectedProfile.fullName || 'Unnamed User'}</h2>
+                                  <p className="text-gray-600 text-sm mt-1">{selectedProfile.email}</p>
+                                  <p className="text-gray-600 text-sm">Phone: {selectedProfile.phone || 'Not provided'}</p>
+                                  <p className="text-gray-600 text-sm">Education: {selectedProfile.educationLevel || 'Not provided'}</p>
+                                  <p className="text-gray-600 text-sm">Institute: {selectedProfile.instituteName || 'Not provided'}</p>
+                                  <p className="text-gray-600 text-sm">ID: {selectedProfile.idType === 'passport' ? 'Passport' : selectedProfile.idType === 'nid' ? 'NID' : 'Birth Registration'} | {selectedProfile.idNumber || 'Not provided'}</p>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full border text-sm font-medium ${badgeClass}`}>
+                                  {status === 'verified' ? 'Verified' : status === 'cancelled' ? 'Cancelled' : 'Pending'}
+                                </span>
+                              </div>
+
+                              <div className="mt-4 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                                <p className="text-sm font-semibold text-gray-800 mb-2">Registered Competitions</p>
+                                {(registrationsByUid[selectedProfile.uid] ?? []).length > 0 ? (
+                                  <ul className="space-y-2">
+                                    {(registrationsByUid[selectedProfile.uid] ?? []).map((entry, index) => (
+                                      <li key={`${entry.competitionId}-${index}`} className="text-sm text-gray-700">
+                                        <span className="font-medium">{entry.competitionName || `Competition #${entry.competitionId}`}</span>
+                                        {entry.competitionDate ? ` | ${entry.competitionDate}` : ''}
+                                        {entry.teamName ? ` | Team: ${entry.teamName}` : ''}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-gray-600">No competition registrations found.</p>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-800 mb-2">Profile Photo</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (selectedProfile.profilePhotoDataUrl) {
+                                        setLightboxAlt(`${selectedProfile.fullName ?? ''} profile photo`)
+                                        setLightboxUrl(selectedProfile.profilePhotoDataUrl)
+                                      }
+                                    }}
+                                    className={`w-full max-w-[260px] aspect-square rounded-2xl overflow-hidden border border-[#edd4ce] bg-[#faf1ef] block ${
+                                      selectedProfile.profilePhotoDataUrl
+                                        ? 'cursor-zoom-in hover:ring-2 hover:ring-accent/40 transition-all'
+                                        : 'cursor-default'
+                                    }`}
+                                    title={selectedProfile.profilePhotoDataUrl ? 'Click to enlarge' : undefined}
+                                  >
+                                    {selectedProfile.profilePhotoDataUrl ? (
+                                      <Image
+                                        src={selectedProfile.profilePhotoDataUrl}
+                                        alt={`${selectedProfile.fullName} profile photo`}
+                                        width={260}
+                                        height={260}
+                                        className="w-full h-full object-cover pointer-events-none"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No image</div>
+                                    )}
+                                  </button>
+                                </div>
+
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-800 mb-2">ID Document</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (selectedProfile.idDocumentPhotoDataUrl) {
+                                        setLightboxAlt(`${selectedProfile.fullName ?? ''} id document`)
+                                        setLightboxUrl(selectedProfile.idDocumentPhotoDataUrl)
+                                      }
+                                    }}
+                                    className={`w-full max-w-[260px] aspect-square rounded-2xl overflow-hidden border border-[#edd4ce] bg-[#faf1ef] block ${
+                                      selectedProfile.idDocumentPhotoDataUrl
+                                        ? 'cursor-zoom-in hover:ring-2 hover:ring-accent/40 transition-all'
+                                        : 'cursor-default'
+                                    }`}
+                                    title={selectedProfile.idDocumentPhotoDataUrl ? 'Click to enlarge' : undefined}
+                                  >
+                                    {selectedProfile.idDocumentPhotoDataUrl ? (
+                                      <Image
+                                        src={selectedProfile.idDocumentPhotoDataUrl}
+                                        alt={`${selectedProfile.fullName} id document`}
+                                        width={260}
+                                        height={260}
+                                        className="w-full h-full object-cover pointer-events-none"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">No document</div>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {status === 'cancelled' && selectedProfile.verificationReason && (
+                                <p className="text-sm text-red-700 mt-4">Cancellation reason: {selectedProfile.verificationReason}</p>
+                              )}
+
+                              {isBuiltInAdminProfile ? (
+                                <p className="text-sm text-green-700 mt-5 font-medium">This account is permanently verified.</p>
+                              ) : (
+                                <>
+                                  <div className="flex flex-wrap gap-3 mt-5">
+                                    {status === 'pending' && (
+                                      <button
+                                        type="button"
+                                        disabled={activeUid === selectedProfile.uid}
+                                        onClick={() => updateStatus(selectedProfile, 'verified')}
+                                        className="px-4 py-2.5 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
+                                      >
+                                        {activeUid === selectedProfile.uid ? 'Updating...' : 'Verify'}
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      disabled={activeUid === selectedProfile.uid}
+                                      onClick={() => void handleDeleteAccountData(selectedProfile)}
+                                      className="px-4 py-2.5 rounded-2xl bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                                    >
+                                      {activeUid === selectedProfile.uid ? 'Deleting...' : 'Delete Account Data'}
+                                    </button>
+                                  </div>
+
+                                  {status !== 'verified' && (
+                                    <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+                                      <input
+                                        type="text"
+                                        value={cancelReasons[selectedProfile.uid] || ''}
+                                        onChange={(event) => setCancelReasons((prev) => ({ ...prev, [selectedProfile.uid]: event.target.value }))}
+                                        placeholder="Reason for cancellation"
+                                        className="flex-1 px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                                      />
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </article>
+                          )
+                        })()
+                      )}
+                    </div>
+                  </section>
                 </div>
-              </section>
-            </div>
+              </>
+            )}
           </>
         )}
       </div>
