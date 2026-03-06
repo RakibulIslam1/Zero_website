@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth, type UserProfile } from '@/components/AuthProvider'
+import { useNotification } from '@/components/NotificationProvider'
 import { competitions } from '@/lib/competitions'
 
 function compressImageToDataUrl(
@@ -105,11 +106,10 @@ function toFriendlyError(error: unknown) {
 export default function ProfilePage() {
   const router = useRouter()
   const { user, profile, registrations, updateProfile, isProfileComplete, signOut } = useAuth()
+  const { notifyError, notifySuccess } = useNotification()
   const [form, setForm] = useState<UserProfile>(profile ?? emptyProfile)
   const [editMode, setEditMode] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saveMessage, setSaveMessage] = useState('')
-  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -193,39 +193,36 @@ export default function ProfilePage() {
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setSaveError('Only image files are allowed (JPG, PNG, WEBP, etc). PDF or other file types are not accepted.')
+      notifyError('Only image files are allowed (JPG, PNG, WEBP, etc). PDF or other file types are not accepted.')
       return
     }
 
     // Reject completely unusable files early (>10 MB)
     const maxSizeInBytes = 10 * 1024 * 1024
     if (file.size > maxSizeInBytes) {
-      setSaveError('Image is too large to process. Please use an image under 10 MB.')
+      notifyError('Image is too large to process. Please use an image under 10 MB.')
       return
     }
 
-    setSaveError('')
     try {
       // Compress & resize to JPEG ≤700×700 @ 0.75 quality → stays well under Firestore 1 MB limit
       const dataUrl = await compressImageToDataUrl(file)
       setForm((prev) => ({ ...prev, [field]: dataUrl }))
     } catch {
-      setSaveError('Could not process the image. Please try a different file.')
+      notifyError('Could not process the image. Please try a different file.')
     }
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    setSaveError('')
-    setSaveMessage('')
     setSaving(true)
 
     try {
       await updateProfile(form)
-      setSaveMessage('Profile saved successfully.')
+      notifySuccess('Profile saved successfully.')
       setEditMode(false)
     } catch (error) {
-      setSaveError(toFriendlyError(error))
+      notifyError(toFriendlyError(error))
     } finally {
       setTimeout(() => setSaving(false), 350)
     }
@@ -418,9 +415,6 @@ export default function ProfilePage() {
                     {saving ? 'Saving...' : 'Save Profile'}
                   </button>
                 </div>
-
-                {saveMessage && <p className="md:col-span-2 text-sm text-green-700">{saveMessage}</p>}
-                {saveError && <p className="md:col-span-2 text-sm text-red-700">{saveError}</p>}
               </form>
             </div>
           )}

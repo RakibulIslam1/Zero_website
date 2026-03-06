@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/components/AuthProvider'
+import { useNotification } from '@/components/NotificationProvider'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { getFirebaseAuth } from '../lib/firebase'
 import Image from 'next/image'
@@ -31,12 +32,11 @@ function toFriendlyAuthError(error: unknown) {
 export default function LoginForm() {
   const router = useRouter()
   const { signInWithEmail, signUpWithEmail } = useAuth()
+  const { notifyError, notifySuccess } = useNotification()
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [showPassword, setShowPassword] = useState(false)
   const [form, setForm] = useState({ fullName: '', email: '', password: '', educationLevel: '', instituteName: '', remember: false })
-  const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [resetMessage, setResetMessage] = useState('')
   const [isResetting, setIsResetting] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,8 +46,6 @@ export default function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setErrorMessage('')
-    setResetMessage('')
     setIsSubmitting(true)
 
     try {
@@ -66,34 +64,31 @@ export default function LoginForm() {
       await signInWithEmail(form.email.trim(), form.password)
       router.push('/profile')
     } catch (error) {
-      setErrorMessage(toFriendlyAuthError(error))
+      notifyError(toFriendlyAuthError(error))
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleForgotPassword = async () => {
-    setErrorMessage('')
-    setResetMessage('')
-
     const email = form.email.trim()
     if (!email) {
-      setErrorMessage('Enter your email first, then click Forgot Password.')
+      notifyError('Enter your email first, then click Forgot Password.')
       return
     }
 
     const firebaseAuth = getFirebaseAuth()
     if (!firebaseAuth) {
-      setErrorMessage('Firebase is not configured yet.')
+      notifyError('Firebase is not configured yet.')
       return
     }
 
     setIsResetting(true)
     try {
       await sendPasswordResetEmail(firebaseAuth, email)
-      setResetMessage('Password reset email sent. Please check your inbox.')
+      notifySuccess('Password reset email sent. Please check your inbox.')
     } catch {
-      setErrorMessage('Could not send reset email. Please verify the email address.')
+      notifyError('Could not send reset email. Please verify the email address.')
     } finally {
       setIsResetting(false)
     }
@@ -256,9 +251,6 @@ export default function LoginForm() {
               Forgot Password?
             </button>
           </div>
-
-          {errorMessage && <p className="text-sm text-red-700">{errorMessage}</p>}
-          {resetMessage && <p className="text-sm text-green-700">{resetMessage}</p>}
 
           <button
             type="submit"

@@ -126,9 +126,15 @@ export async function POST(request: Request) {
     const payload = (await request.json()) as ContactPayload
     const authedUser = await getAuthenticatedUser(request)
 
+    if (!authedUser?.uid || !authedUser.email) {
+      return NextResponse.json(
+        { error: 'Please create an account and sign in before starting a chat.' },
+        { status: 401 },
+      )
+    }
+
     const threadId = (payload.threadId || '').trim()
     const name = (payload.name || '').trim()
-    const email = (payload.email || '').trim()
     const subject = (payload.subject || '').trim()
     const message = (payload.message || '').trim()
 
@@ -154,13 +160,13 @@ export async function POST(request: Request) {
       const existingData = threadSnap.data() as Record<string, unknown>
       const ownerUserId = String(existingData.userId || '')
       const ownerEmail = normalizeEmail(String(existingData.email || ''))
-      const requesterEmail = normalizeEmail(authedUser?.email || '')
+      const requesterEmail = normalizeEmail(authedUser.email)
 
-      if (authedUser?.uid && ownerUserId && ownerUserId !== authedUser.uid) {
+      if (ownerUserId && ownerUserId !== authedUser.uid) {
         return NextResponse.json({ error: 'You are not allowed to reply to this conversation.' }, { status: 403 })
       }
 
-      if (authedUser?.uid && !ownerUserId && ownerEmail && requesterEmail && ownerEmail !== requesterEmail) {
+      if (!ownerUserId && ownerEmail && requesterEmail && ownerEmail !== requesterEmail) {
         return NextResponse.json({ error: 'You are not allowed to reply to this conversation.' }, { status: 403 })
       }
 
@@ -171,7 +177,7 @@ export async function POST(request: Request) {
           sender: 'user' as const,
           text: message,
           createdAt: now,
-          senderName: name || authedUser?.name || String(existingData.name || 'User'),
+          senderName: name || authedUser.name || String(existingData.name || 'User'),
         },
       ]
 
@@ -180,7 +186,7 @@ export async function POST(request: Request) {
           messages: nextMessages,
           updatedAt: now,
           status: 'open',
-          ...(authedUser?.uid && !ownerUserId ? { userId: authedUser.uid } : {}),
+          ...(!ownerUserId ? { userId: authedUser.uid } : {}),
           ...(ownerEmail ? { emailLower: ownerEmail } : {}),
         },
         { merge: true },
@@ -189,15 +195,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, threadId })
     }
 
-    if (!name || !email || !subject) {
+    if (!name || !subject) {
       return NextResponse.json({ error: 'Please fill all required fields.' }, { status: 400 })
     }
 
     const created = await adminDb.collection('contactMessages').add({
-      userId: authedUser?.uid || null,
+      userId: authedUser.uid,
       name,
-      email,
-      emailLower: normalizeEmail(email),
+      email: authedUser.email,
+      emailLower: normalizeEmail(authedUser.email),
       subject,
       createdAt: now,
       updatedAt: now,

@@ -8,6 +8,7 @@ import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
 import { useAuth, UserProfile } from '@/components/AuthProvider'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { defaultSiteContactSettings } from '@/lib/siteContact'
+import { useNotification } from '@/components/NotificationProvider'
 
 type AdminProfileRow = UserProfile & { uid: string }
 type AdminRegistration = {
@@ -62,6 +63,7 @@ export default function AdminPage() {
     grantAdminAccess,
     revokeAdminAccess,
   } = useAuth()
+  const { notifyError, notifySuccess } = useNotification()
 
   const [rows, setRows] = useState<AdminProfileRow[]>([])
   const [loadingRows, setLoadingRows] = useState(true)
@@ -86,6 +88,25 @@ export default function AdminPage() {
   const [loadingSiteContactSettings, setLoadingSiteContactSettings] = useState(true)
   const [savingSiteContactSettings, setSavingSiteContactSettings] = useState(false)
   const [siteContactMessage, setSiteContactMessage] = useState('')
+  const [isDeletingContact, setIsDeletingContact] = useState(false)
+
+  useEffect(() => {
+    if (!error) return
+    notifyError(error)
+    setError(null)
+  }, [error, notifyError])
+
+  useEffect(() => {
+    if (!adminActionMessage) return
+    notifySuccess(adminActionMessage)
+    setAdminActionMessage('')
+  }, [adminActionMessage, notifySuccess])
+
+  useEffect(() => {
+    if (!siteContactMessage) return
+    notifySuccess(siteContactMessage)
+    setSiteContactMessage('')
+  }, [siteContactMessage, notifySuccess])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -528,6 +549,55 @@ export default function AdminPage() {
     }
   }
 
+  const handleDeleteContactThread = async () => {
+    if (!selectedContact) {
+      setError('Select a message thread to delete.')
+      return
+    }
+
+    if (!isSuperAdmin) {
+      setError('Only super admin can delete chat threads.')
+      return
+    }
+
+    setError(null)
+    setIsDeletingContact(true)
+
+    try {
+      const token = await getFirebaseAuth()?.currentUser?.getIdToken(true)
+      if (!token) {
+        throw new Error('You must be logged in as super admin to delete chats.')
+      }
+
+      const response = await fetch('/api/admin/contact-messages', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          contactId: selectedContact.id,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to delete conversation.')
+      }
+
+      const deletedId = selectedContact.id
+      const nextItems = contactMessages.filter((entry) => entry.id !== deletedId)
+      setContactMessages(nextItems)
+      setSelectedContactId(nextItems[0]?.id || '')
+      setReplyDraft('')
+      notifySuccess('Conversation deleted successfully.')
+    } catch (err) {
+      setError(toAdminError(err, 'Failed to delete conversation.'))
+    } finally {
+      setIsDeletingContact(false)
+    }
+  }
+
   const handleSaveSiteContactSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
@@ -660,13 +730,7 @@ export default function AdminPage() {
                 )
               })}
             </div>
-
-            {adminActionMessage && <p className="text-sm text-green-700 mt-3">{adminActionMessage}</p>}
           </section>
-        )}
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 text-sm">{error}</div>
         )}
 
         <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
@@ -810,7 +874,19 @@ export default function AdminPage() {
                         >
                           {isSendingReply ? 'Sending...' : 'Reply'}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteContactThread()}
+                          disabled={isDeletingContact || !isSuperAdmin}
+                          className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60"
+                          title={isSuperAdmin ? 'Delete this full conversation' : 'Only super admin can delete chats'}
+                        >
+                          {isDeletingContact ? 'Deleting...' : 'Delete Chat'}
+                        </button>
                       </div>
+                      {!isSuperAdmin && (
+                        <p className="mt-2 text-xs text-gray-500">Only super admin can delete chat threads.</p>
+                      )}
                     </>
                   )}
                 </div>

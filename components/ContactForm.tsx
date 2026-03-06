@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Send } from 'lucide-react'
 import { useAuth } from '@/components/AuthProvider'
 import { getFirebaseAuth } from '@/lib/firebase'
+import { useNotification } from '@/components/NotificationProvider'
 
 type ThreadMessage = {
   sender: 'user' | 'admin'
@@ -22,10 +23,9 @@ type ContactThread = {
 
 export default function ContactForm() {
   const { user } = useAuth()
+  const { notifyError, notifySuccess } = useNotification()
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
-  const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
   const [threads, setThreads] = useState<ContactThread[]>([])
   const [loadingThreads, setLoadingThreads] = useState(false)
   const [activeThreadId, setActiveThreadId] = useState<string>('')
@@ -68,7 +68,7 @@ export default function ContactForm() {
         setActiveThreadId(nextThreads[0].id)
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to load message threads.')
+      notifyError(error instanceof Error ? error.message : 'Failed to load message threads.')
     } finally {
       setLoadingThreads(false)
     }
@@ -85,20 +85,25 @@ export default function ContactForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setErrorMessage('')
+
+    if (!user) {
+      notifyError('Please create an account and sign in before chatting with us.')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      let token = ''
-      if (user) {
-        token = (await getFirebaseAuth()?.currentUser?.getIdToken(true)) || ''
+      const token = (await getFirebaseAuth()?.currentUser?.getIdToken(true)) || ''
+      if (!token) {
+        throw new Error('Please sign in to continue.')
       }
 
       const response = await fetch('/api/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       })
@@ -108,11 +113,11 @@ export default function ContactForm() {
         throw new Error(payload.error || 'Failed to send your message.')
       }
 
-      setSubmitted(true)
+      notifySuccess('Message sent successfully.')
       setForm({ name: '', email: '', subject: '', message: '' })
       await loadThreads()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to send your message.')
+      notifyError(error instanceof Error ? error.message : 'Failed to send your message.')
     } finally {
       setIsSubmitting(false)
     }
@@ -122,7 +127,6 @@ export default function ContactForm() {
     event.preventDefault()
     if (!activeThread || !replyText.trim() || !user) return
 
-    setErrorMessage('')
     setIsReplying(true)
     try {
       const token = (await getFirebaseAuth()?.currentUser?.getIdToken(true)) || ''
@@ -151,19 +155,36 @@ export default function ContactForm() {
       }
 
       setReplyText('')
+      notifySuccess('Reply sent successfully.')
       await loadThreads()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to send reply.')
+      notifyError(error instanceof Error ? error.message : 'Failed to send reply.')
     } finally {
       setIsReplying(false)
     }
   }
 
+  useEffect(() => {
+    if (!user) {
+      setThreads([])
+      setActiveThreadId('')
+      setReplyText('')
+      setForm((prev) => ({ ...prev, email: '', name: '' }))
+      return
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      name: prev.name || user.fullName,
+      email: prev.email || user.email,
+    }))
+  }, [user])
+
   return (
     <div className="space-y-8">
-      {submitted && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          Message sent successfully.
+      {!user && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Create an account and sign in to start chatting with the team.
         </div>
       )}
 
@@ -180,6 +201,7 @@ export default function ContactForm() {
               required
               value={form.name}
               onChange={handleChange}
+              disabled={!user}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors"
               placeholder="John Doe"
             />
@@ -195,6 +217,7 @@ export default function ContactForm() {
               required
               value={form.email}
               onChange={handleChange}
+              disabled={!user}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors"
               placeholder="john@example.com"
             />
@@ -306,8 +329,6 @@ export default function ContactForm() {
           )}
         </section>
       )}
-
-      {errorMessage && <p className="text-sm text-red-700">{errorMessage}</p>}
     </div>
   )
 }

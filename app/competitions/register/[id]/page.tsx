@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { competitions } from '@/lib/competitions'
 import { useAuth } from '@/components/AuthProvider'
+import { useNotification } from '@/components/NotificationProvider'
 
 export default function CompetitionRegisterPage() {
   const params = useParams<{ id: string }>()
@@ -18,6 +19,7 @@ export default function CompetitionRegisterPage() {
     addRegistration,
     isRegisteredForCompetition,
   } = useAuth()
+  const { notifyError, notifySuccess } = useNotification()
 
   const [form, setForm] = useState({
     teamName: '',
@@ -27,7 +29,6 @@ export default function CompetitionRegisterPage() {
   })
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
 
   const alreadyRegistered = useMemo(
     () => isRegisteredForCompetition(competitionId),
@@ -117,7 +118,6 @@ export default function CompetitionRegisterPage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    setSubmitError('')
     setIsSubmitting(true)
 
     try {
@@ -132,9 +132,10 @@ export default function CompetitionRegisterPage() {
         submittedAt: new Date().toISOString(),
       })
       setSubmitted(true)
+      notifySuccess('Registration submitted successfully.')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not submit registration. Please try again.'
-      setSubmitError(message)
+      notifyError(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -176,8 +177,6 @@ export default function CompetitionRegisterPage() {
               Cancel
             </Link>
           </div>
-
-          {submitError && <p className="text-sm text-red-700">{submitError}</p>}
         </form>
       </div>
     </div>
