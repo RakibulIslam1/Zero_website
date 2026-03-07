@@ -49,6 +49,58 @@ function compressImageToDataUrl(
   })
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('Failed to read image file'))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function createProfileCroppedDataUrl(
+  sourceDataUrl: string,
+  zoom: number,
+  offsetX: number,
+  offsetY: number,
+): Promise<string> {
+  const img = new window.Image()
+
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve()
+    img.onerror = () => reject(new Error('Failed to load image for framing'))
+    img.src = sourceDataUrl
+  })
+
+  const size = 700
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('Canvas not available')
+  }
+
+  const baseScale = Math.max(size / img.width, size / img.height)
+  const drawWidth = img.width * baseScale * zoom
+  const drawHeight = img.height * baseScale * zoom
+
+  const offsetRange = size * 0.35
+  const preferredX = (size - drawWidth) / 2 + (offsetX / 100) * offsetRange
+  const preferredY = (size - drawHeight) / 2 + (offsetY / 100) * offsetRange
+
+  const minX = size - drawWidth
+  const maxX = 0
+  const minY = size - drawHeight
+  const maxY = 0
+
+  const drawX = Math.min(maxX, Math.max(minX, preferredX))
+  const drawY = Math.min(maxY, Math.max(minY, preferredY))
+
+  ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
+  return canvas.toDataURL('image/jpeg', 0.82)
+}
+
 const emptyProfile: UserProfile = {
   fullName: '',
   email: '',
@@ -110,6 +162,11 @@ export default function ProfilePage() {
   const [form, setForm] = useState<UserProfile>(profile ?? emptyProfile)
   const [editMode, setEditMode] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [profilePhotoSourceDataUrl, setProfilePhotoSourceDataUrl] = useState('')
+  const [profilePhotoZoom, setProfilePhotoZoom] = useState(1)
+  const [profilePhotoOffsetX, setProfilePhotoOffsetX] = useState(0)
+  const [profilePhotoOffsetY, setProfilePhotoOffsetY] = useState(0)
+  const [applyingProfilePhotoFrame, setApplyingProfilePhotoFrame] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -188,7 +245,7 @@ export default function ProfilePage() {
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>, field: 'profilePhotoDataUrl' | 'idDocumentPhotoDataUrl') => {
+  const handleIdDocumentPhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -207,9 +264,59 @@ export default function ProfilePage() {
     try {
       // Compress & resize to JPEG ≤700×700 @ 0.75 quality → stays well under Firestore 1 MB limit
       const dataUrl = await compressImageToDataUrl(file)
-      setForm((prev) => ({ ...prev, [field]: dataUrl }))
+      setForm((prev) => ({ ...prev, idDocumentPhotoDataUrl: dataUrl }))
     } catch {
       notifyError('Could not process the image. Please try a different file.')
+    }
+  }
+
+  const handleProfilePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      notifyError('Only image files are allowed (JPG, PNG, WEBP, etc).')
+      return
+    }
+
+    const maxSizeInBytes = 10 * 1024 * 1024
+    if (file.size > maxSizeInBytes) {
+      notifyError('Image is too large to process. Please use an image under 10 MB.')
+      return
+    }
+
+    try {
+      const sourceDataUrl = await readFileAsDataUrl(file)
+      setProfilePhotoSourceDataUrl(sourceDataUrl)
+      setProfilePhotoZoom(1)
+      setProfilePhotoOffsetX(0)
+      setProfilePhotoOffsetY(0)
+    } catch {
+      notifyError('Could not process the selected image. Please try another one.')
+    }
+  }
+
+  const applyProfilePhotoFrame = async () => {
+    if (!profilePhotoSourceDataUrl) return
+
+    setApplyingProfilePhotoFrame(true)
+    try {
+      const dataUrl = await createProfileCroppedDataUrl(
+        profilePhotoSourceDataUrl,
+        profilePhotoZoom,
+        profilePhotoOffsetX,
+        profilePhotoOffsetY,
+      )
+
+      setForm((prev) => ({
+        ...prev,
+        profilePhotoDataUrl: dataUrl,
+      }))
+      notifySuccess('Profile photo framed and set. Save profile to keep this update.')
+    } catch {
+      notifyError('Could not apply the selected framing. Please try again.')
+    } finally {
+      setApplyingProfilePhotoFrame(false)
     }
   }
 
@@ -402,12 +509,92 @@ export default function ProfilePage() {
 
                 <div>
                   <label className="text-sm font-medium text-gray-700">Profile Photo *</label>
-                  <input type="file" accept="image/*" onChange={(event) => handleFileChange(event, 'profilePhotoDataUrl')} className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3" />
+                  <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3" />
+
+                  {profilePhotoSourceDataUrl && (
+                    <div className="mt-3 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 space-y-4">
+                      <p className="text-sm font-medium text-gray-700">Profile Photo Framing Demo</p>
+
+                      <div className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={profilePhotoSourceDataUrl}
+                          alt="Profile photo framing preview"
+                          className="absolute top-1/2 left-1/2 w-full h-full object-cover"
+                          style={{
+                            transform: `translate(calc(-50% + ${profilePhotoOffsetX * 0.6}px), calc(-50% + ${profilePhotoOffsetY * 0.6}px)) scale(${profilePhotoZoom})`,
+                            transformOrigin: 'center center',
+                          }}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 text-sm">
+                        <label className="text-gray-700">
+                          Zoom
+                          <input
+                            type="range"
+                            min={1}
+                            max={2.4}
+                            step={0.01}
+                            value={profilePhotoZoom}
+                            onChange={(event) => setProfilePhotoZoom(Number(event.target.value))}
+                            className="mt-2 w-full"
+                          />
+                        </label>
+                        <label className="text-gray-700">
+                          Move Left / Right
+                          <input
+                            type="range"
+                            min={-100}
+                            max={100}
+                            step={1}
+                            value={profilePhotoOffsetX}
+                            onChange={(event) => setProfilePhotoOffsetX(Number(event.target.value))}
+                            className="mt-2 w-full"
+                          />
+                        </label>
+                        <label className="text-gray-700">
+                          Move Up / Down
+                          <input
+                            type="range"
+                            min={-100}
+                            max={100}
+                            step={1}
+                            value={profilePhotoOffsetY}
+                            onChange={(event) => setProfilePhotoOffsetY(Number(event.target.value))}
+                            className="mt-2 w-full"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfilePhotoZoom(1)
+                            setProfilePhotoOffsetX(0)
+                            setProfilePhotoOffsetY(0)
+                          }}
+                          className="px-4 py-2 rounded-xl border border-[#e8cfc9] text-sm font-semibold text-gray-700 hover:bg-[#f8dfda]"
+                        >
+                          Reset Framing
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void applyProfilePhotoFrame()}
+                          disabled={applyingProfilePhotoFrame}
+                          className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-60"
+                        >
+                          {applyingProfilePhotoFrame ? 'Applying...' : 'Set As Profile Photo'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-gray-700">ID Document Photo *</label>
-                  <input type="file" accept="image/*" onChange={(event) => handleFileChange(event, 'idDocumentPhotoDataUrl')} className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3" />
+                  <input type="file" accept="image/*" onChange={handleIdDocumentPhotoChange} className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3" />
                 </div>
 
                 <div className="md:col-span-2 flex items-center gap-3 pt-2">
