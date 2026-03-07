@@ -29,6 +29,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="light" style={{ colorScheme: 'light' }} suppressHydrationWarning>
+      <head>
+        <meta name="color-scheme" content="only light" />
+        <meta name="supported-color-schemes" content="light" />
+      </head>
       <body className={`${poppins.className} font-sans bg-[#FAEAE6] text-primary transition-colors duration-300 overflow-x-hidden`}>
         <AuthProvider>
           <NotificationProvider>
