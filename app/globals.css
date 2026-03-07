@@ -8,11 +8,9 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 10, 10, 10;
-    --background-rgb: 250, 234, 230;
-  }
+html.light,
+html[data-theme='light'] {
+  color-scheme: light !important;
 }
 
 body {

@@ -6,6 +6,7 @@ import Footer from '@/components/Footer'
 import BackgroundElements from '@/components/BackgroundElements'
 import { AuthProvider } from '@/components/AuthProvider'
 import { NotificationProvider } from '@/components/NotificationProvider'
+import ForceLightTheme from '@/components/ForceLightTheme'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -15,6 +16,7 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: 'Zero Competitions',
   description: 'ZERO is a modern, innovative company delivering excellence in every project.',
+  colorScheme: 'light',
   icons: {
     icon: '/images/favicon.png?v=20250305',
   },
@@ -30,6 +32,7 @@ export default function RootLayout({
       <body className={`${poppins.className} font-sans bg-[#FAEAE6] text-primary transition-colors duration-300 overflow-x-hidden`}>
         <AuthProvider>
           <NotificationProvider>
+            <ForceLightTheme />
             <BackgroundElements />
 
             <div className="relative z-10">
