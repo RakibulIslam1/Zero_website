@@ -4,10 +4,20 @@ import { useEffect } from 'react'
 
 function enforceLightTheme() {
   const root = document.documentElement
-  root.classList.remove('dark')
-  root.classList.add('light')
-  root.setAttribute('data-theme', 'light')
-  root.style.colorScheme = 'light'
+
+  // Avoid writing repeatedly, otherwise MutationObserver can cause a tight loop.
+  if (root.classList.contains('dark')) {
+    root.classList.remove('dark')
+  }
+  if (!root.classList.contains('light')) {
+    root.classList.add('light')
+  }
+  if (root.getAttribute('data-theme') !== 'light') {
+    root.setAttribute('data-theme', 'light')
+  }
+  if (root.style.colorScheme !== 'light') {
+    root.style.colorScheme = 'light'
+  }
 }
 
 export default function ForceLightTheme() {
