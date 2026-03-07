@@ -10,12 +10,6 @@ export default function Hero() {
 
   return (
     <section className="min-h-screen flex items-center justify-center relative overflow-hidden bg-transparent pt-16">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-52 -left-56 w-[38rem] h-[38rem] rounded-full bg-[radial-gradient(circle,_rgba(201,94,94,0.34)_0%,rgba(201,94,94,0.18)_35%,rgba(201,94,94,0.08)_55%,rgba(201,94,94,0)_74%)] blur-3xl" />
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
