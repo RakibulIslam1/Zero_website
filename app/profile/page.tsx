@@ -164,7 +164,6 @@ export default function ProfilePage() {
   const [profilePhotoZoom, setProfilePhotoZoom] = useState(1)
   const [profilePhotoPanX, setProfilePhotoPanX] = useState(0)
   const [profilePhotoPanY, setProfilePhotoPanY] = useState(0)
-  const [applyingProfilePhotoFrame, setApplyingProfilePhotoFrame] = useState(false)
   const dragStateRef = useRef({
     active: false,
     pointerId: -1,
@@ -378,36 +377,31 @@ export default function ProfilePage() {
     }
   }
 
-  const applyProfilePhotoFrame = async () => {
-    if (!profilePhotoSourceDataUrl) return
-
-    setApplyingProfilePhotoFrame(true)
-    try {
-      const dataUrl = await createProfileCroppedDataUrl(
-        profilePhotoSourceDataUrl,
-        profilePhotoZoom,
-        profilePhotoPanX,
-        profilePhotoPanY,
-      )
-
-      setForm((prev) => ({
-        ...prev,
-        profilePhotoDataUrl: dataUrl,
-      }))
-      notifySuccess('Profile photo set. Save profile to keep this update.')
-    } catch {
-      notifyError('Could not apply the selected framing. Please try again.')
-    } finally {
-      setApplyingProfilePhotoFrame(false)
-    }
-  }
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setSaving(true)
 
     try {
-      await updateProfile(form)
+      let nextForm = form
+
+      // If user uploaded a new source image for preview/reframe, apply it automatically on save.
+      if (profilePhotoSourceDataUrl) {
+        const framedProfilePhoto = await createProfileCroppedDataUrl(
+          profilePhotoSourceDataUrl,
+          profilePhotoZoom,
+          profilePhotoPanX,
+          profilePhotoPanY,
+        )
+
+        nextForm = {
+          ...form,
+          profilePhotoDataUrl: framedProfilePhoto,
+        }
+        setForm(nextForm)
+        setProfilePhotoSourceDataUrl('')
+      }
+
+      await updateProfile(nextForm)
       notifySuccess('Profile saved successfully.')
       setEditMode(false)
     } catch (error) {
@@ -596,7 +590,7 @@ export default function ProfilePage() {
                   {profilePhotoSourceDataUrl ? (
                     <div className="mt-3 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 space-y-3">
                       <p className="text-sm font-medium text-gray-700">Profile Photo Demo</p>
-                      <p className="text-xs text-gray-500">Drag to reframe. Use touchpad/mouse wheel or pinch to zoom.</p>
+                      <p className="text-xs text-gray-500">Drag to reframe. Use touchpad/mouse wheel or pinch to zoom. Saving profile will apply this framing automatically.</p>
 
                       <div
                         className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative touch-none"
@@ -633,14 +627,6 @@ export default function ProfilePage() {
                           className="px-4 py-2 rounded-xl border border-[#e8cfc9] text-sm font-semibold text-gray-700 hover:bg-[#f8dfda]"
                         >
                           Reset
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void applyProfilePhotoFrame()}
-                          disabled={applyingProfilePhotoFrame}
-                          className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-60"
-                        >
-                          {applyingProfilePhotoFrame ? 'Applying...' : 'Set Photo'}
                         </button>
                       </div>
                     </div>
