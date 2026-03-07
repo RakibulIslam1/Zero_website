@@ -5,6 +5,7 @@
 :root {
   --foreground-rgb: 10, 10, 10;
   --background-rgb: 250, 234, 230;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,4 +23,10 @@ body {
 
 html {
   scroll-behavior: smooth;
+  color-scheme: light;
+}
+
+html,
+body {
+  forced-color-adjust: none;
 }

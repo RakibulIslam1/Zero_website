@@ -115,17 +115,18 @@ export default function Navbar() {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-[#e8cfc9] bg-[#FAEAE6]"
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="md:hidden border-t border-[#e8cfc9] bg-[#FAEAE6] shadow-[0_10px_30px_rgba(136,73,73,0.14)]"
           >
-            <div className="max-w-7xl mx-auto px-4 py-4 space-y-3">
+            <div className="max-w-7xl mx-auto px-4 py-4 space-y-2">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="block text-base font-semibold text-gray-700 hover:text-accent py-2"
+                  className="block rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   {link.label}
@@ -135,7 +136,7 @@ export default function Navbar() {
               {isAdmin && (
                 <Link
                   href="/admin"
-                  className="block text-base font-semibold text-gray-700 hover:text-accent py-2"
+                  className="block rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   Admin
@@ -146,7 +147,7 @@ export default function Navbar() {
                 <>
                   <Link
                     href="/profile"
-                    className="block text-base font-semibold text-gray-700 hover:text-accent py-2"
+                    className="block rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
                     onClick={() => setIsOpen(false)}
                   >
                     Profile
@@ -156,7 +157,7 @@ export default function Navbar() {
                       signOut()
                       setIsOpen(false)
                     }}
-                    className="block w-full text-left text-base font-semibold text-gray-700 hover:text-accent py-2"
+                    className="block w-full rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-left text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
                   >
                     Sign Out
                   </button>
@@ -164,7 +165,7 @@ export default function Navbar() {
               ) : (
                 <Link
                   href="/login"
-                  className="block text-base font-semibold text-gray-700 hover:text-accent py-2"
+                  className="block rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   Login
