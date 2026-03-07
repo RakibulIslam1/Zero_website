@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -8,6 +8,7 @@ import { collection, doc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
 import { useAuth, UserProfile } from '@/components/AuthProvider'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { defaultSiteContactSettings } from '@/lib/siteContact'
+import { defaultSiteFeatureBannerSettings } from '@/lib/siteFeatureBanner'
 import { useNotification } from '@/components/NotificationProvider'
 
 type AdminProfileRow = UserProfile & { uid: string }
@@ -40,6 +41,11 @@ type SiteContactSettings = {
   phoneSecondary: string
   email: string
   officeHours: string
+}
+
+type SiteFeatureBannerSettings = {
+  imageDataUrl: string
+  linkUrl: string
 }
 
 const defaultSiteContactFormValues: SiteContactSettings = {
@@ -80,7 +86,7 @@ export default function AdminPage() {
   const [registrationsByUid, setRegistrationsByUid] = useState<Record<string, AdminRegistration[]>>({})
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([])
   const [loadingContactMessages, setLoadingContactMessages] = useState(true)
-  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages' | 'contactSettings'>('overview')
+  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages' | 'contactSettings' | 'featureBanner'>('overview')
   const [selectedContactId, setSelectedContactId] = useState('')
   const [replyDraft, setReplyDraft] = useState('')
   const [isSendingReply, setIsSendingReply] = useState(false)
@@ -88,6 +94,11 @@ export default function AdminPage() {
   const [loadingSiteContactSettings, setLoadingSiteContactSettings] = useState(true)
   const [savingSiteContactSettings, setSavingSiteContactSettings] = useState(false)
   const [siteContactMessage, setSiteContactMessage] = useState('')
+  const [siteFeatureBannerSettings, setSiteFeatureBannerSettings] = useState<SiteFeatureBannerSettings>(defaultSiteFeatureBannerSettings)
+  const [loadingFeatureBannerSettings, setLoadingFeatureBannerSettings] = useState(true)
+  const [savingFeatureBannerSettings, setSavingFeatureBannerSettings] = useState(false)
+  const [featureBannerMessage, setFeatureBannerMessage] = useState('')
+  const [featureBannerUploadError, setFeatureBannerUploadError] = useState('')
   const [isDeletingContact, setIsDeletingContact] = useState(false)
 
   useEffect(() => {
@@ -107,6 +118,12 @@ export default function AdminPage() {
     notifySuccess(siteContactMessage)
     setSiteContactMessage('')
   }, [siteContactMessage, notifySuccess])
+
+  useEffect(() => {
+    if (!featureBannerMessage) return
+    notifySuccess(featureBannerMessage)
+    setFeatureBannerMessage('')
+  }, [featureBannerMessage, notifySuccess])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -246,6 +263,43 @@ export default function AdminPage() {
     }
 
     void loadSiteContactSettings()
+  }, [authLoading, user, isAdmin])
+
+  useEffect(() => {
+    if (authLoading || !user || !isAdmin) return
+
+    const loadFeatureBannerSettings = async () => {
+      setLoadingFeatureBannerSettings(true)
+
+      try {
+        const response = await fetch('/api/site-feature-banner', {
+          method: 'GET',
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(payload.error || 'Failed to load feature banner settings.')
+        }
+
+        const payload = (await response.json()) as {
+          settings?: {
+            imageDataUrl?: string
+            linkUrl?: string
+          }
+        }
+
+        setSiteFeatureBannerSettings({
+          imageDataUrl: payload.settings?.imageDataUrl || defaultSiteFeatureBannerSettings.imageDataUrl,
+          linkUrl: payload.settings?.linkUrl || '',
+        })
+      } catch (err) {
+        setError(toAdminError(err, 'Failed to load feature banner settings.'))
+      } finally {
+        setLoadingFeatureBannerSettings(false)
+      }
+    }
+
+    void loadFeatureBannerSettings()
   }, [authLoading, user, isAdmin])
 
   const grouped = useMemo(() => {
@@ -641,6 +695,84 @@ export default function AdminPage() {
     }
   }
 
+  const handleFeatureBannerFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    setFeatureBannerUploadError('')
+
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setFeatureBannerUploadError('Please upload an image file only.')
+      return
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      setFeatureBannerUploadError('Image size must be 3MB or less.')
+      return
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('Failed to read image file.'))
+      reader.readAsDataURL(file)
+    }).catch(() => '')
+
+    if (!dataUrl) {
+      setFeatureBannerUploadError('Failed to process image file.')
+      return
+    }
+
+    setSiteFeatureBannerSettings((prev) => ({
+      ...prev,
+      imageDataUrl: dataUrl,
+    }))
+  }
+
+  const handleSaveFeatureBannerSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError(null)
+    setFeatureBannerMessage('')
+    setFeatureBannerUploadError('')
+    setSavingFeatureBannerSettings(true)
+
+    try {
+      const token = await getFirebaseAuth()?.currentUser?.getIdToken(true)
+      if (!token) {
+        throw new Error('You must be logged in as admin to update feature banner.')
+      }
+
+      if (!siteFeatureBannerSettings.imageDataUrl.trim()) {
+        throw new Error('Banner image is required.')
+      }
+
+      const response = await fetch('/api/site-feature-banner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          imageDataUrl: siteFeatureBannerSettings.imageDataUrl,
+          linkUrl: siteFeatureBannerSettings.linkUrl,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to update feature banner settings.')
+      }
+
+      setFeatureBannerMessage('Feature banner updated successfully.')
+    } catch (err) {
+      setError(toAdminError(err, 'Failed to update feature banner settings.'))
+    } finally {
+      setSavingFeatureBannerSettings(false)
+    }
+  }
+
   if (authLoading) {
     return (
       <main className="pt-28 pb-16 px-4">
@@ -757,7 +889,7 @@ export default function AdminPage() {
                     <p className="text-xs text-gray-600 mt-1">Read contact threads and send admin replies.</p>
                   </button>
                 </div>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
                     type="button"
                     onClick={() => setActiveSection('contactSettings')}
@@ -765,6 +897,14 @@ export default function AdminPage() {
                   >
                     <p className="text-base font-semibold text-gray-900">Contact Settings Section</p>
                     <p className="text-xs text-gray-600 mt-1">Update phone, email, office hours, and address shown on Contact Us page.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('featureBanner')}
+                    className="rounded-2xl border border-[#f2d9a5] bg-[#fff6e8] px-5 py-4 text-left hover:bg-[#ffeccc] transition-colors"
+                  >
+                    <p className="text-base font-semibold text-gray-900">Feature Banner Section</p>
+                    <p className="text-xs text-gray-600 mt-1">Upload the homepage banner and set redirect link when users click it.</p>
                   </button>
                 </div>
               </div>
@@ -777,14 +917,18 @@ export default function AdminPage() {
                     ? 'Profile Section'
                     : activeSection === 'messages'
                       ? 'Message Section'
-                      : 'Contact Settings Section'}
+                      : activeSection === 'contactSettings'
+                        ? 'Contact Settings Section'
+                        : 'Feature Banner Section'}
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   {activeSection === 'profiles'
                     ? 'Review verification and account details.'
                     : activeSection === 'messages'
                       ? 'Reply to users and continue conversation threads.'
-                      : 'Edit public contact and address details at any time.'}
+                      : activeSection === 'contactSettings'
+                        ? 'Edit public contact and address details at any time.'
+                        : 'Upload and link the feature banner shown on homepage.'}
                 </p>
               </div>
               <button
@@ -977,6 +1121,61 @@ export default function AdminPage() {
                     {savingSiteContactSettings ? 'Saving...' : 'Save Contact Settings'}
                   </button>
                   {siteContactMessage && <p className="text-sm text-green-700">{siteContactMessage}</p>}
+                </div>
+              </form>
+            )}
+          </section>
+        )}
+
+        {activeSection === 'featureBanner' && (
+          <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+            {loadingFeatureBannerSettings ? (
+              <p className="text-sm text-gray-600">Loading feature banner settings...</p>
+            ) : (
+              <form onSubmit={handleSaveFeatureBannerSettings} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Banner Link</label>
+                  <input
+                    type="text"
+                    value={siteFeatureBannerSettings.linkUrl}
+                    onChange={(event) =>
+                      setSiteFeatureBannerSettings((prev) => ({ ...prev, linkUrl: event.target.value }))
+                    }
+                    className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    placeholder="https://example.com or /competitions"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Upload Banner Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => void handleFeatureBannerFileChange(event)}
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-accent file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-accent/90"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">Recommended wide image. Max size: 3MB.</p>
+                  {featureBannerUploadError && <p className="text-sm text-red-700 mt-2">{featureBannerUploadError}</p>}
+                </div>
+
+                <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-3">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Banner Preview</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={siteFeatureBannerSettings.imageDataUrl || defaultSiteFeatureBannerSettings.imageDataUrl}
+                    alt="Feature banner preview"
+                    className="w-full rounded-xl border border-[#e8cfc9]"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={savingFeatureBannerSettings}
+                    className="px-5 py-2.5 rounded-2xl bg-accent text-white font-semibold hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                  >
+                    {savingFeatureBannerSettings ? 'Saving...' : 'Save Feature Banner'}
+                  </button>
                 </div>
               </form>
             )}

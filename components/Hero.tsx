@@ -15,6 +15,7 @@ export default function Hero() {
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
       </div>
+      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent via-[#faeae6]/75 to-[#faeae6] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <motion.div
