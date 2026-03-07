@@ -306,18 +306,18 @@ export default function ContactForm() {
                       ))}
                     </div>
 
-                    <form onSubmit={handleReply} className="mt-3 flex gap-2">
+                    <form onSubmit={handleReply} className="mt-3 flex flex-col sm:flex-row gap-2">
                       <input
                         type="text"
                         value={replyText}
                         onChange={(event) => setReplyText(event.target.value)}
                         placeholder="Write a reply..."
-                        className="flex-1 rounded-xl border border-[#e8cfc9] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                        className="min-w-0 flex-1 rounded-xl border border-[#e8cfc9] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
                       />
                       <button
                         type="submit"
                         disabled={isReplying}
-                        className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-60"
+                        className="w-full sm:w-auto sm:flex-shrink-0 px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-60"
                       >
                         {isReplying ? 'Sending...' : 'Reply'}
                       </button>
