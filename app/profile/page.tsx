@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -61,9 +61,11 @@ function readFileAsDataUrl(file: File): Promise<string> {
 async function createProfileCroppedDataUrl(
   sourceDataUrl: string,
   zoom: number,
-  offsetX: number,
-  offsetY: number,
+  panX: number,
+  panY: number,
 ): Promise<string> {
+  const previewSize = 224
+  const outputSize = 700
   const img = new window.Image()
 
   await new Promise<void>((resolve, reject) => {
@@ -72,30 +74,26 @@ async function createProfileCroppedDataUrl(
     img.src = sourceDataUrl
   })
 
-  const size = 700
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
+  canvas.width = outputSize
+  canvas.height = outputSize
   const ctx = canvas.getContext('2d')
   if (!ctx) {
     throw new Error('Canvas not available')
   }
 
-  const baseScale = Math.max(size / img.width, size / img.height)
+  const baseScale = Math.max(outputSize / img.width, outputSize / img.height)
   const drawWidth = img.width * baseScale * zoom
   const drawHeight = img.height * baseScale * zoom
+  const previewToOutputRatio = outputSize / previewSize
 
-  const offsetRange = size * 0.35
-  const preferredX = (size - drawWidth) / 2 + (offsetX / 100) * offsetRange
-  const preferredY = (size - drawHeight) / 2 + (offsetY / 100) * offsetRange
+  const preferredX = (outputSize - drawWidth) / 2 + panX * previewToOutputRatio
+  const preferredY = (outputSize - drawHeight) / 2 + panY * previewToOutputRatio
 
-  const minX = size - drawWidth
-  const maxX = 0
-  const minY = size - drawHeight
-  const maxY = 0
-
-  const drawX = Math.min(maxX, Math.max(minX, preferredX))
-  const drawY = Math.min(maxY, Math.max(minY, preferredY))
+  const minX = outputSize - drawWidth
+  const minY = outputSize - drawHeight
+  const drawX = Math.min(0, Math.max(minX, preferredX))
+  const drawY = Math.min(0, Math.max(minY, preferredY))
 
   ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
   return canvas.toDataURL('image/jpeg', 0.82)
@@ -164,9 +162,18 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [profilePhotoSourceDataUrl, setProfilePhotoSourceDataUrl] = useState('')
   const [profilePhotoZoom, setProfilePhotoZoom] = useState(1)
-  const [profilePhotoOffsetX, setProfilePhotoOffsetX] = useState(0)
-  const [profilePhotoOffsetY, setProfilePhotoOffsetY] = useState(0)
+  const [profilePhotoPanX, setProfilePhotoPanX] = useState(0)
+  const [profilePhotoPanY, setProfilePhotoPanY] = useState(0)
   const [applyingProfilePhotoFrame, setApplyingProfilePhotoFrame] = useState(false)
+  const dragStateRef = useRef({
+    active: false,
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    basePanX: 0,
+    basePanY: 0,
+  })
+  const pinchDistanceRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -289,10 +296,85 @@ export default function ProfilePage() {
       const sourceDataUrl = await readFileAsDataUrl(file)
       setProfilePhotoSourceDataUrl(sourceDataUrl)
       setProfilePhotoZoom(1)
-      setProfilePhotoOffsetX(0)
-      setProfilePhotoOffsetY(0)
+      setProfilePhotoPanX(0)
+      setProfilePhotoPanY(0)
+      notifySuccess('Preview ready. Drag and zoom to reframe, then set the photo.')
     } catch {
       notifyError('Could not process the selected image. Please try another one.')
+    }
+  }
+
+  const clampPan = (value: number) => Math.max(-140, Math.min(140, value))
+  const clampZoom = (value: number) => Math.max(1, Math.min(2.6, value))
+
+  const handleProfilePreviewWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const delta = -event.deltaY * 0.0015
+    setProfilePhotoZoom((prev) => clampZoom(prev + delta))
+  }
+
+  const handleProfilePreviewPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return
+    }
+
+    dragStateRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      basePanX: profilePhotoPanX,
+      basePanY: profilePhotoPanY,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handleProfilePreviewPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const dragState = dragStateRef.current
+    if (!dragState.active || dragState.pointerId !== event.pointerId) {
+      return
+    }
+
+    const deltaX = event.clientX - dragState.startX
+    const deltaY = event.clientY - dragState.startY
+    setProfilePhotoPanX(clampPan(dragState.basePanX + deltaX))
+    setProfilePhotoPanY(clampPan(dragState.basePanY + deltaY))
+  }
+
+  const handleProfilePreviewPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStateRef.current.pointerId === event.pointerId) {
+      dragStateRef.current.active = false
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  const handleProfilePreviewTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 2) {
+      const [first, second] = [event.touches[0], event.touches[1]]
+      const dx = first.clientX - second.clientX
+      const dy = first.clientY - second.clientY
+      pinchDistanceRef.current = Math.hypot(dx, dy)
+    }
+  }
+
+  const handleProfilePreviewTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 2 || pinchDistanceRef.current === null) {
+      return
+    }
+
+    event.preventDefault()
+    const [first, second] = [event.touches[0], event.touches[1]]
+    const dx = first.clientX - second.clientX
+    const dy = first.clientY - second.clientY
+    const distance = Math.hypot(dx, dy)
+    const change = (distance - pinchDistanceRef.current) * 0.008
+    pinchDistanceRef.current = distance
+    setProfilePhotoZoom((prev) => clampZoom(prev + change))
+  }
+
+  const handleProfilePreviewTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length < 2) {
+      pinchDistanceRef.current = null
     }
   }
 
@@ -304,15 +386,15 @@ export default function ProfilePage() {
       const dataUrl = await createProfileCroppedDataUrl(
         profilePhotoSourceDataUrl,
         profilePhotoZoom,
-        profilePhotoOffsetX,
-        profilePhotoOffsetY,
+        profilePhotoPanX,
+        profilePhotoPanY,
       )
 
       setForm((prev) => ({
         ...prev,
         profilePhotoDataUrl: dataUrl,
       }))
-      notifySuccess('Profile photo framed and set. Save profile to keep this update.')
+      notifySuccess('Profile photo set. Save profile to keep this update.')
     } catch {
       notifyError('Could not apply the selected framing. Please try again.')
     } finally {
@@ -511,60 +593,33 @@ export default function ProfilePage() {
                   <label className="text-sm font-medium text-gray-700">Profile Photo *</label>
                   <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3" />
 
-                  {profilePhotoSourceDataUrl && (
-                    <div className="mt-3 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 space-y-4">
-                      <p className="text-sm font-medium text-gray-700">Profile Photo Framing Demo</p>
+                  {profilePhotoSourceDataUrl ? (
+                    <div className="mt-3 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 space-y-3">
+                      <p className="text-sm font-medium text-gray-700">Profile Photo Demo</p>
+                      <p className="text-xs text-gray-500">Drag to reframe. Use touchpad/mouse wheel or pinch to zoom.</p>
 
-                      <div className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative">
+                      <div
+                        className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative touch-none"
+                        onWheel={handleProfilePreviewWheel}
+                        onPointerDown={handleProfilePreviewPointerDown}
+                        onPointerMove={handleProfilePreviewPointerMove}
+                        onPointerUp={handleProfilePreviewPointerUp}
+                        onPointerCancel={handleProfilePreviewPointerUp}
+                        onTouchStart={handleProfilePreviewTouchStart}
+                        onTouchMove={handleProfilePreviewTouchMove}
+                        onTouchEnd={handleProfilePreviewTouchEnd}
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={profilePhotoSourceDataUrl}
-                          alt="Profile photo framing preview"
-                          className="absolute top-1/2 left-1/2 w-full h-full object-cover"
+                          alt="Profile photo preview"
+                          className="absolute top-1/2 left-1/2 w-full h-full object-cover select-none"
+                          draggable={false}
                           style={{
-                            transform: `translate(calc(-50% + ${profilePhotoOffsetX * 0.6}px), calc(-50% + ${profilePhotoOffsetY * 0.6}px)) scale(${profilePhotoZoom})`,
+                            transform: `translate(calc(-50% + ${profilePhotoPanX}px), calc(-50% + ${profilePhotoPanY}px)) scale(${profilePhotoZoom})`,
                             transformOrigin: 'center center',
                           }}
                         />
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 text-sm">
-                        <label className="text-gray-700">
-                          Zoom
-                          <input
-                            type="range"
-                            min={1}
-                            max={2.4}
-                            step={0.01}
-                            value={profilePhotoZoom}
-                            onChange={(event) => setProfilePhotoZoom(Number(event.target.value))}
-                            className="mt-2 w-full"
-                          />
-                        </label>
-                        <label className="text-gray-700">
-                          Move Left / Right
-                          <input
-                            type="range"
-                            min={-100}
-                            max={100}
-                            step={1}
-                            value={profilePhotoOffsetX}
-                            onChange={(event) => setProfilePhotoOffsetX(Number(event.target.value))}
-                            className="mt-2 w-full"
-                          />
-                        </label>
-                        <label className="text-gray-700">
-                          Move Up / Down
-                          <input
-                            type="range"
-                            min={-100}
-                            max={100}
-                            step={1}
-                            value={profilePhotoOffsetY}
-                            onChange={(event) => setProfilePhotoOffsetY(Number(event.target.value))}
-                            className="mt-2 w-full"
-                          />
-                        </label>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -572,12 +627,12 @@ export default function ProfilePage() {
                           type="button"
                           onClick={() => {
                             setProfilePhotoZoom(1)
-                            setProfilePhotoOffsetX(0)
-                            setProfilePhotoOffsetY(0)
+                            setProfilePhotoPanX(0)
+                            setProfilePhotoPanY(0)
                           }}
                           className="px-4 py-2 rounded-xl border border-[#e8cfc9] text-sm font-semibold text-gray-700 hover:bg-[#f8dfda]"
                         >
-                          Reset Framing
+                          Reset
                         </button>
                         <button
                           type="button"
@@ -585,10 +640,12 @@ export default function ProfilePage() {
                           disabled={applyingProfilePhotoFrame}
                           className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-60"
                         >
-                          {applyingProfilePhotoFrame ? 'Applying...' : 'Set As Profile Photo'}
+                          {applyingProfilePhotoFrame ? 'Applying...' : 'Set Photo'}
                         </button>
                       </div>
                     </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-500">Upload an image, then drag/zoom in preview to reframe.</p>
                   )}
                 </div>
 
