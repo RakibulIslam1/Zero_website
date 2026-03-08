@@ -4,7 +4,7 @@
 
 :root {
   --foreground-rgb: 10, 10, 10;
-  --background-rgb: 250, 234, 230;
+  --background-rgb: 250, 247, 247;
   color-scheme: light;
 }
 
@@ -15,7 +15,7 @@ html[data-theme='light'] {
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: #FAEAE6;
+  background: #FDF7F7;
   font-family: 'Poppins', sans-serif;
 }
 

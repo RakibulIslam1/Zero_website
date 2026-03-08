@@ -6,10 +6,10 @@ export type SiteContactSettings = {
 }
 
 export const defaultSiteContactSettings: SiteContactSettings = {
-  address: 'Address not updated yet',
-  phones: ['01754496926', '01750964611'],
-  email: 'info.zerocomps@gmail.com',
-  officeHours: 'Closed',
+  address: 'House-298, Shadinota Sharoni, Road, Jamtula Mur, Uttar Badda, Dhaka-1212',
+  phones: ['01601687773', '01967016700'],
+  email: 'miahsuzan818@gmail.com',
+  officeHours: 'Sat–Thu: 9 AM – 6 PM',
 }
 
 export async function loadSiteContactSettings(): Promise<SiteContactSettings> {

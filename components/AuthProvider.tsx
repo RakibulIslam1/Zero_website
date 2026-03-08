@@ -75,6 +75,7 @@ interface AuthContextType {
   isAdmin: boolean
   isSuperAdmin: boolean
   adminEmails: string[]
+  superAdminEmails: string[]
   profile: UserProfile | null
   registrations: CompetitionRegistration[]
   signInWithEmail: (email: string, password: string) => Promise<void>
@@ -84,6 +85,8 @@ interface AuthContextType {
   addRegistration: (registration: CompetitionRegistration) => Promise<void>
   grantAdminAccess: (email: string) => Promise<void>
   revokeAdminAccess: (email: string) => Promise<void>
+  promoteSuperAdmin: (email: string) => Promise<void>
+  demoteSuperAdmin: (email: string) => Promise<void>
   isProfileComplete: boolean
   isRegisteredForCompetition: (competitionId: number) => boolean
 }
@@ -93,7 +96,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
-  const [adminEmails, setAdminEmails] = useState<string[]>([SUPER_ADMIN_EMAIL])
+  const [adminEmails, setAdminEmails] = useState<string[]>([])
+  const [superAdminEmails, setSuperAdminEmails] = useState<string[]>([SUPER_ADMIN_EMAIL])
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [registrations, setRegistrations] = useState<CompetitionRegistration[]>([])
 
@@ -181,19 +185,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return
           }
 
-          const storedAdmins = adminRolesSnap.exists()
-        ? ((adminRolesSnap.data().emails as string[] | undefined) ?? [])
+          const storedSuperAdmins = adminRolesSnap.exists()
+        ? ((adminRolesSnap.data().superAdmins as string[] | undefined) ?? [])
             .map((email) => email.trim().toLowerCase())
             .filter(Boolean)
         : []
 
-      if (!storedAdmins.includes(SUPER_ADMIN_EMAIL)) {
-        const nextAdmins = Array.from(new Set([SUPER_ADMIN_EMAIL, ...storedAdmins]))
-        setAdminEmails(nextAdmins)
-        await setDoc(adminRolesRef, { emails: nextAdmins, updatedAt: Date.now() }, { merge: true })
+          const storedAdmins = adminRolesSnap.exists()
+        ? ((adminRolesSnap.data().admins as string[] | undefined) ?? [])
+            .map((email) => email.trim().toLowerCase())
+            .filter(Boolean)
+        : []
+
+      // Bootstrap: ensure the hardcoded super admin is always present
+      if (!storedSuperAdmins.includes(SUPER_ADMIN_EMAIL)) {
+        const nextSuperAdmins = Array.from(new Set([SUPER_ADMIN_EMAIL, ...storedSuperAdmins]))
+        setSuperAdminEmails(nextSuperAdmins)
+        await setDoc(adminRolesRef, { superAdmins: nextSuperAdmins, admins: storedAdmins, updatedAt: Date.now() }, { merge: true })
       } else {
-        setAdminEmails(Array.from(new Set(storedAdmins)))
+        setSuperAdminEmails(Array.from(new Set(storedSuperAdmins)))
       }
+      setAdminEmails(Array.from(new Set(storedAdmins)))
 
       if (profileSnap.exists()) {
         const profileData = profileSnap.data() as Partial<UserProfile>
@@ -484,7 +496,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const grantAdminAccess = async (email: string) => {
-    if (!user?.email || user.email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
+    const currentEmail = user?.email?.toLowerCase()
+    if (!currentEmail || !superAdminEmails.includes(currentEmail)) {
       throw new Error('Only super admin can assign admin access.')
     }
 
@@ -498,11 +511,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Firestore is not configured.')
     }
 
-    const nextAdmins = Array.from(new Set([...adminEmails, normalized, SUPER_ADMIN_EMAIL]))
+    const nextAdmins = Array.from(new Set([...adminEmails, normalized]))
     await setDoc(
       doc(db, 'adminSettings', ADMIN_ROLES_DOC),
       {
-        emails: nextAdmins,
+        admins: nextAdmins,
         updatedAt: Date.now(),
       },
       { merge: true },
@@ -511,13 +524,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const revokeAdminAccess = async (email: string) => {
-    if (!user?.email || user.email.toLowerCase() !== SUPER_ADMIN_EMAIL) {
+    const currentEmail = user?.email?.toLowerCase()
+    if (!currentEmail || !superAdminEmails.includes(currentEmail)) {
       throw new Error('Only super admin can remove admin access.')
     }
 
     const normalized = email.trim().toLowerCase()
-    if (!normalized || normalized === SUPER_ADMIN_EMAIL) {
-      throw new Error('Super admin access cannot be removed.')
+    if (!normalized) {
+      throw new Error('Admin email is required.')
     }
 
     const db = getFirestoreDb()
@@ -529,7 +543,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(
       doc(db, 'adminSettings', ADMIN_ROLES_DOC),
       {
-        emails: nextAdmins,
+        admins: nextAdmins,
         updatedAt: Date.now(),
       },
       { merge: true },
@@ -537,7 +551,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAdminEmails(nextAdmins)
   }
 
-  const isSuperAdmin = user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL
+  const promoteSuperAdmin = async (email: string) => {
+    const currentEmail = user?.email?.toLowerCase()
+    if (!currentEmail || !superAdminEmails.includes(currentEmail)) {
+      throw new Error('Only super admin can promote super admins.')
+    }
+
+    const normalized = email.trim().toLowerCase()
+    if (!normalized) {
+      throw new Error('Email is required.')
+    }
+
+    const db = getFirestoreDb()
+    if (!db) {
+      throw new Error('Firestore is not configured.')
+    }
+
+    const nextSuperAdmins = Array.from(new Set([...superAdminEmails, normalized]))
+    await setDoc(
+      doc(db, 'adminSettings', ADMIN_ROLES_DOC),
+      {
+        superAdmins: nextSuperAdmins,
+        updatedAt: Date.now(),
+      },
+      { merge: true },
+    )
+    setSuperAdminEmails(nextSuperAdmins)
+  }
+
+  const demoteSuperAdmin = async (email: string) => {
+    const currentEmail = user?.email?.toLowerCase()
+    if (!currentEmail || !superAdminEmails.includes(currentEmail)) {
+      throw new Error('Only super admin can demote super admins.')
+    }
+
+    const normalized = email.trim().toLowerCase()
+    if (!normalized) {
+      throw new Error('Email is required.')
+    }
+
+    // Prevent removing the last super admin
+    if (superAdminEmails.length <= 1) {
+      throw new Error('Cannot remove the last super admin.')
+    }
+
+    const db = getFirestoreDb()
+    if (!db) {
+      throw new Error('Firestore is not configured.')
+    }
+
+    const nextSuperAdmins = superAdminEmails.filter((item) => item !== normalized)
+    if (nextSuperAdmins.length === 0) {
+      throw new Error('Cannot remove the last super admin.')
+    }
+    await setDoc(
+      doc(db, 'adminSettings', ADMIN_ROLES_DOC),
+      {
+        superAdmins: nextSuperAdmins,
+        updatedAt: Date.now(),
+      },
+      { merge: true },
+    )
+    setSuperAdminEmails(nextSuperAdmins)
+  }
+
+  const isSuperAdmin = Boolean(user?.email && superAdminEmails.includes(user.email.toLowerCase()))
   const isAdmin = Boolean(user?.email && (isSuperAdmin || adminEmails.includes(user.email.toLowerCase())))
 
   const isProfileComplete = useMemo(() => {
@@ -570,6 +648,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isSuperAdmin,
         adminEmails,
+        superAdminEmails,
         profile,
         registrations,
         signInWithEmail,
@@ -579,6 +658,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         addRegistration,
         grantAdminAccess,
         revokeAdminAccess,
+        promoteSuperAdmin,
+        demoteSuperAdmin,
         isProfileComplete,
         isRegisteredForCompetition,
       }}

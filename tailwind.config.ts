@@ -11,7 +11,8 @@ const config: Config = {
     extend: {
       colors: {
         primary: '#0A0A0A',
-        accent: '#C95E5E',
+        accent: '#7A1020',
+        'accent-dark': '#5a0b17',
         secondary: '#F5F5F5',
       },
       fontFamily: {

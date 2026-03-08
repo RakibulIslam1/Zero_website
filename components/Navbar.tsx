@@ -2,83 +2,73 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { Menu, X, LogOut } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/components/AuthProvider'
 
 const navLinks = [
   { href: '/', label: 'Home' },
-  { href: '/about', label: 'About Zero' },
-  { href: '/competitions', label: 'Competitions' },
-  { href: '/join-us', label: 'Join Us' },
+  { href: '/about', label: 'About Us' },
+  { href: '/japan-student-visa', label: 'Japan Student Visa' },
+  { href: '/ssw-visa', label: 'SSW Visa' },
+  { href: '/working-visa', label: 'Working Visa' },
+  { href: '/malaysia-student-visa', label: 'Malaysia Student Visa' },
+  { href: '/air-ticket-service', label: 'Air Ticket Service' },
   { href: '/contact', label: 'Contact Us' },
 ]
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
-  const { user, signOut, isAdmin, isProfileComplete, loading, profile } = useAuth()
+  const { user, signOut, isAdmin, loading } = useAuth()
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-[#FAEAE6]/95 backdrop-blur-md border-b border-[#e8cfc9]">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-[#7A1020]/95 backdrop-blur-md shadow-md">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between h-20 px-4 sm:px-6 lg:px-8">
-          {/* Logo */}
-          <Link href="/" className="flex items-center" aria-label="Zero Competitions home">
-            <Image
-              src="/images/Zero-Competitions_logo.png"
-              alt="Zero Competitions"
-              width={220}
-              height={60}
-              className="h-12 w-auto md:h-[3.2rem]"
-              priority
-            />
+        <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+          {/* Logo / Brand */}
+          <Link href="/" className="flex items-center gap-2" aria-label="Samurai Japanese Language Training Center home">
+            <span className="text-white font-bold text-lg leading-tight hidden sm:block">
+              Samurai<br />
+              <span className="text-yellow-300 text-sm font-semibold">Japanese Language Training</span>
+            </span>
+            <span className="text-white font-bold text-base leading-tight sm:hidden">
+              Samurai
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden lg:flex items-center gap-5">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-lg font-semibold text-gray-700 hover:text-accent transition-colors duration-200"
+                className="text-sm font-medium text-white/90 hover:text-yellow-300 transition-colors duration-200 whitespace-nowrap"
               >
                 {link.label}
               </Link>
             ))}
 
             {isAdmin && (
-              <Link href="/admin" className="text-lg font-semibold text-gray-700 hover:text-accent transition-colors duration-200">
+              <Link href="/admin" className="text-sm font-medium text-white/90 hover:text-yellow-300 transition-colors duration-200">
                 Admin
               </Link>
             )}
 
             {user ? (
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/profile"
-                  className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#f0d9d4] bg-[#f6dfda] flex items-center justify-center"
-                  aria-label="Open profile"
-                >
-                  {user.avatarDataUrl ? (
-                    <Image src={user.avatarDataUrl} alt={user.fullName} width={48} height={48} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-accent font-semibold">{user.fullName.slice(0, 1).toUpperCase()}</span>
-                  )}
-                </Link>
-
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => signOut()}
-                  className="w-10 h-10 rounded-full border border-[#e8cfc9] bg-[#FAEAE6] hover:bg-[#f5ddd8] flex items-center justify-center"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
                   aria-label="Sign out"
                 >
-                  <LogOut size={16} className="text-gray-700" />
+                  <LogOut size={14} />
+                  Sign Out
                 </button>
               </div>
             ) : (
               <Link
                 href="/login"
-                className="px-5 py-2.5 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent/90 transition-colors"
+                className="px-4 py-2 rounded-full bg-yellow-400 text-gray-900 text-sm font-semibold hover:bg-yellow-300 transition-colors"
               >
                 Login
               </Link>
@@ -86,48 +76,42 @@ export default function Navbar() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex items-center md:hidden">
+          <div className="flex items-center lg:hidden gap-2">
+            {!loading && !user && (
+              <Link
+                href="/login"
+                className="px-3 py-1.5 rounded-full bg-yellow-400 text-gray-900 text-xs font-semibold hover:bg-yellow-300 transition-colors"
+              >
+                Login
+              </Link>
+            )}
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-full text-gray-700 hover:bg-[#f3d7d2] transition-colors"
+              className="p-2 rounded-full text-white hover:bg-white/10 transition-colors"
               aria-label="Toggle mobile menu"
             >
-              {isOpen ? <X size={24} /> : <Menu size={24} />}
+              {isOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
       </div>
 
-      {!loading && user && profile && !isProfileComplete && (
-        <div className="border-t border-[#efd6d1] bg-[#fff4ef]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3">
-            <p className="text-sm text-accent font-medium">Your profile is incomplete. Complete it to unlock all features.</p>
-            <Link
-              href="/profile"
-              className="text-sm font-semibold text-accent hover:text-accent-dark underline underline-offset-2"
-            >
-              Complete now
-            </Link>
-          </div>
-        </div>
-      )}
-
       {/* Mobile Menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="md:hidden border-t border-[#e8cfc9] bg-[#FAEAE6] shadow-[0_10px_30px_rgba(136,73,73,0.14)]"
+            className="lg:hidden border-t border-white/20 bg-[#7A1020] shadow-lg"
           >
-            <div className="max-w-7xl mx-auto px-4 py-4 space-y-2">
+            <div className="max-w-7xl mx-auto px-4 py-3 space-y-1">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="block rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
+                  className="block rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:text-yellow-300 hover:bg-white/10 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   {link.label}
@@ -137,40 +121,24 @@ export default function Navbar() {
               {isAdmin && (
                 <Link
                   href="/admin"
-                  className="block rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
+                  className="block rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:text-yellow-300 hover:bg-white/10 transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   Admin
                 </Link>
               )}
 
-              {user ? (
-                <>
-                  <Link
-                    href="/profile"
-                    className="block rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  <button
-                    onClick={() => {
-                      signOut()
-                      setIsOpen(false)
-                    }}
-                    className="block w-full rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-left text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <Link
-                  href="/login"
-                  className="block rounded-xl border border-[#edd5cf] bg-[#fdf1ee] px-3 py-2.5 text-base font-semibold text-gray-700 hover:text-accent hover:bg-[#fae7e2] transition-colors"
-                  onClick={() => setIsOpen(false)}
+              {user && (
+                <button
+                  onClick={() => {
+                    signOut()
+                    setIsOpen(false)
+                  }}
+                  className="flex items-center gap-2 w-full rounded-lg px-3 py-2.5 text-sm font-medium text-white/90 hover:text-yellow-300 hover:bg-white/10 transition-colors"
                 >
-                  Login
-                </Link>
+                  <LogOut size={14} />
+                  Sign Out
+                </button>
               )}
             </div>
           </motion.div>

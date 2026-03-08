@@ -78,8 +78,11 @@ export default function AdminPage() {
     isAdmin,
     isSuperAdmin,
     adminEmails,
+    superAdminEmails,
     grantAdminAccess,
     revokeAdminAccess,
+    promoteSuperAdmin,
+    demoteSuperAdmin,
   } = useAuth()
   const { notifyError, notifySuccess } = useNotification()
 
@@ -613,6 +616,30 @@ export default function AdminPage() {
     }
   }
 
+  const handlePromoteSuperAdmin = async (email: string) => {
+    setAdminActionMessage('')
+    setError(null)
+
+    try {
+      await promoteSuperAdmin(email)
+      setAdminActionMessage(`${email} promoted to super admin.`)
+    } catch (err) {
+      setError(toAdminError(err, 'Failed to promote super admin.'))
+    }
+  }
+
+  const handleDemoteSuperAdmin = async (email: string) => {
+    setAdminActionMessage('')
+    setError(null)
+
+    try {
+      await demoteSuperAdmin(email)
+      setAdminActionMessage(`${email} demoted from super admin.`)
+    } catch (err) {
+      setError(toAdminError(err, 'Failed to demote super admin.'))
+    }
+  }
+
   const handleSendContactReply = async () => {
     if (!selectedContact) {
       setError('Select a message thread to reply.')
@@ -1025,7 +1052,7 @@ export default function AdminPage() {
         {isSuperAdmin && (
           <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
             <h2 className="text-2xl font-bold text-gray-900">Admin Access Management</h2>
-            <p className="text-sm text-gray-600 mt-1">Only super admin can add or remove admin users.</p>
+            <p className="text-sm text-gray-600 mt-1">Only super admin can add or remove admin users and promote/demote super admins.</p>
 
             <form onSubmit={handleAssignAdmin} className="mt-4 flex flex-col sm:flex-row gap-3">
               <input
@@ -1043,24 +1070,48 @@ export default function AdminPage() {
               </button>
             </form>
 
-            <div className="mt-4 space-y-2">
-              {adminEmails.map((email) => {
-                const isSuper = email === SUPER_ADMIN_EMAIL
-                return (
-                  <div key={email} className="flex items-center justify-between rounded-2xl border border-[#efd6d1] bg-[#fff9f8] px-4 py-3">
-                    <p className="text-sm text-gray-700">{email}{isSuper ? ' (Super Admin)' : ''}</p>
-                    {!isSuper && (
-                      <button
-                        type="button"
-                        onClick={() => void handleRemoveAdmin(email)}
-                        className="text-sm px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors"
-                      >
-                        Remove
-                      </button>
-                    )}
+            <div className="mt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-700 mt-4">Super Admins</h3>
+              {superAdminEmails.map((email) => (
+                <div key={email} className="flex items-center justify-between rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3">
+                  <p className="text-sm text-gray-700">{email} <span className="text-yellow-700 font-semibold text-xs">(Super Admin)</span></p>
+                  {superAdminEmails.length > 1 && email !== user?.email?.toLowerCase() && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDemoteSuperAdmin(email)}
+                      className="text-sm px-3 py-1.5 rounded-xl bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
+                    >
+                      Demote
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <h3 className="text-sm font-semibold text-gray-700 mt-4">Regular Admins</h3>
+              {adminEmails.length === 0 && (
+                <p className="text-sm text-gray-500 italic">No regular admins yet. Add one above.</p>
+              )}
+              {adminEmails.map((email) => (
+                <div key={email} className="flex items-center justify-between rounded-2xl border border-[#efd6d1] bg-[#fff9f8] px-4 py-3">
+                  <p className="text-sm text-gray-700">{email}</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handlePromoteSuperAdmin(email)}
+                      className="text-xs px-3 py-1.5 rounded-xl bg-yellow-500 text-white hover:bg-yellow-600 transition-colors"
+                    >
+                      Promote to Super
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveAdmin(email)}
+                      className="text-xs px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors"
+                    >
+                      Remove
+                    </button>
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           </section>
         )}

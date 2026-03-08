@@ -1,9 +1,8 @@
-import { NextResponse } from 'next/server'
-import { getFirebaseAdminAuth, getFirebaseAdminDb } from '@/lib/firebaseAdmin'
+import { NextRequest, NextResponse } from 'next/server'
+import { getFirebaseAdminDb } from '@/lib/firebaseAdmin'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export const runtime = 'nodejs'
-
-const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
 
 type ThreadMessage = {
   sender: 'user' | 'admin'
@@ -70,43 +69,10 @@ function getThreadMessages(data: Record<string, unknown>) {
   ]
 }
 
-async function requireAdmin(request: Request) {
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : ''
-
-  if (!token) {
-    throw new HttpError(401, 'Missing authorization token.')
-  }
-
-  const adminAuth = getFirebaseAdminAuth()
-  const adminDb = getFirebaseAdminDb()
-
-  const decoded = await adminAuth.verifyIdToken(token)
-  const requesterEmail = decoded.email?.toLowerCase() || ''
-
-  if (!requesterEmail) {
-    throw new HttpError(401, 'Unable to identify requester email.')
-  }
-
-  const rolesDoc = await adminDb.doc('adminSettings/roles').get()
-  const adminEmails = ((rolesDoc.data()?.emails as string[] | undefined) ?? []).map((entry) => entry.toLowerCase())
-  const isAllowedAdmin = requesterEmail === SUPER_ADMIN_EMAIL || adminEmails.includes(requesterEmail)
-
-  if (!isAllowedAdmin) {
-    throw new HttpError(403, 'Only admin users can view contact messages.')
-  }
-
-  return {
-    adminDb,
-    requesterName: decoded.name || requesterEmail,
-    requesterEmail,
-    isSuperAdmin: requesterEmail === SUPER_ADMIN_EMAIL,
-  }
-}
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { adminDb } = await requireAdmin(request)
+    await requireAdmin(request, 'any')
+    const adminDb = getFirebaseAdminDb()
 
     const snap = await adminDb.collection('contactMessages').limit(300).get()
     const items = snap.docs
@@ -121,9 +87,10 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { adminDb, requesterName } = await requireAdmin(request)
+    const admin = await requireAdmin(request, 'any')
+    const adminDb = getFirebaseAdminDb()
     const payload = (await request.json()) as { contactId?: string; reply?: string }
     const contactId = (payload.contactId || '').trim()
     const reply = (payload.reply || '').trim()
@@ -148,7 +115,7 @@ export async function POST(request: Request) {
         sender: 'admin' as const,
         text: reply,
         createdAt: now,
-        senderName: requesterName,
+        senderName: admin.email,
       },
     ]
 
@@ -169,13 +136,36 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const { adminDb, isSuperAdmin } = await requireAdmin(request)
-    if (!isSuperAdmin) {
+    await requireAdmin(request, 'any')
+    const adminDb = getFirebaseAdminDb()
+    const payload = (await request.json()) as { contactId?: string; status?: string }
+    const contactId = (payload.contactId || '').trim()
+    const status = (payload.status || '').trim()
+
+    if (!contactId || !status) {
+      return NextResponse.json({ error: 'contactId and status are required.' }, { status: 400 })
+    }
+
+    const threadRef = adminDb.collection('contactMessages').doc(contactId)
+    await threadRef.set({ status, updatedAt: Date.now() }, { merge: true })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update message status.'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const admin = await requireAdmin(request, 'any')
+    if (!admin.isSuperAdmin) {
       return NextResponse.json({ error: 'Only super admin can delete chat threads.' }, { status: 403 })
     }
 
+    const adminDb = getFirebaseAdminDb()
     const payload = (await request.json()) as { contactId?: string }
     const contactId = (payload.contactId || '').trim()
 
@@ -193,7 +183,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete conversation.'
-    const status = error instanceof HttpError ? error.status : 500
-    return NextResponse.json({ error: message }, { status })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

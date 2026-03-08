@@ -1,104 +1,119 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import ContactForm from '@/components/ContactForm'
-import { defaultSiteContactSettings, loadSiteContactSettings, SiteContactSettings } from '@/lib/siteContact'
+
+const offices = [
+  {
+    country: '🇧🇩 Bangladesh Office',
+    address: 'House-298, Shadinota Sharoni, Road, Jamtula Mur, Uttar Badda, Dhaka-1212',
+    phones: ['01601687773', '01967016700'],
+    email: 'miahsuzan818@gmail.com',
+    hours: 'Sat–Thu: 9 AM – 6 PM',
+  },
+  {
+    country: '🇯🇵 Japan Office',
+    address: 'Tokyo to Kita ku Akabane Nishi 4-35-5 Sakauekup101',
+    phones: ['+81 70-9039-4475'],
+    email: 'miahsuzan818@gmail.com',
+    hours: 'Mon–Fri: 9 AM – 5 PM (JST)',
+  },
+]
 
 export default function ContactPage() {
-  const [settings, setSettings] = useState<SiteContactSettings>(defaultSiteContactSettings)
-
-  useEffect(() => {
-    const loadContactSettings = async () => {
-      const loadedSettings = await loadSiteContactSettings()
-      setSettings(loadedSettings)
-    }
-
-    void loadContactSettings()
-  }, [])
-
-  const contactInfo = useMemo(
-    () => [
-      { icon: MapPin, label: 'Address', values: [settings.address] },
-      { icon: Phone, label: 'Phone', values: settings.phones },
-      { icon: Mail, label: 'Email', values: [settings.email] },
-      { icon: Clock, label: 'Office Hours', values: [settings.officeHours] },
-    ],
-    [settings],
-  )
-
   return (
     <div className="pt-16">
       {/* Hero */}
-      <section className="py-24 bg-transparent">
+      <section className="py-16 bg-accent text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
-            className="text-5xl font-bold text-gray-900 dark:text-white mb-6"
+            className="text-5xl font-bold mb-4"
           >
-            Contact <span className="text-accent">Us</span>
+            Contact Us
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
+            className="text-xl text-red-100 max-w-2xl mx-auto"
           >
-            Have a question or want to work together? We'd love to hear from you.
+            Have a question about our programs or visa services? We&apos;d love to hear from you.
           </motion.p>
         </div>
       </section>
 
-      {/* Contact Content */}
-      <section className="py-24 bg-transparent">
+      {/* Office Locations */}
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-            {/* Form */}
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7 }}
-            >
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Send us a Message</h2>
-              <ContactForm />
-            </motion.div>
-
-            {/* Info */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7 }}
-            >
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Get in Touch</h2>
-              <div className="space-y-6 mb-10">
-                {contactInfo.map((info) => (
-                  <div key={info.label} className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <info.icon size={22} className="text-accent" />
-                    </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Our Offices</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {offices.map((office, index) => (
+              <motion.div
+                key={office.country}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm"
+              >
+                <h3 className="text-xl font-bold text-gray-900 mb-6">{office.country}</h3>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <MapPin size={20} className="text-accent mt-0.5 flex-shrink-0" />
+                    <p className="text-gray-700">{office.address}</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Phone size={20} className="text-accent mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{info.label}</p>
-                      {info.values.map((value) => (
-                        <p key={value} className="text-gray-900 dark:text-white font-medium">
-                          {value}
-                        </p>
+                      {office.phones.map((phone) => (
+                        <a
+                          key={phone}
+                          href={`tel:${phone.replace(/\s/g, '')}`}
+                          className="block text-gray-700 hover:text-accent transition-colors"
+                        >
+                          {phone}
+                        </a>
                       ))}
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Map placeholder */}
-              <div className="rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 h-64 flex items-center justify-center border border-gray-200 dark:border-gray-700">
-                <div className="text-center text-gray-400 dark:text-gray-600">
-                  <MapPin size={40} className="mx-auto mb-2" />
-                  <p className="text-sm">Map placeholder</p>
-                  <p className="text-xs">{settings.address}</p>
+                  <div className="flex items-center gap-3">
+                    <Mail size={20} className="text-accent flex-shrink-0" />
+                    <a href={`mailto:${office.email}`} className="text-gray-700 hover:text-accent transition-colors">
+                      {office.email}
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Clock size={20} className="text-accent flex-shrink-0" />
+                    <p className="text-gray-700">{office.hours}</p>
+                  </div>
                 </div>
-              </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Form */}
+      <section className="py-16 bg-transparent">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto">
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7 }}
+              className="text-3xl font-bold text-gray-900 mb-8 text-center"
+            >
+              Send Us a Message
+            </motion.h2>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+            >
+              <ContactForm />
             </motion.div>
           </div>
         </div>

@@ -1,10 +1,9 @@
-import { NextResponse } from 'next/server'
-import { getFirebaseAdminAuth, getFirebaseAdminDb } from '@/lib/firebaseAdmin'
+import { NextRequest, NextResponse } from 'next/server'
+import { getFirebaseAdminDb } from '@/lib/firebaseAdmin'
+import { requireAdmin } from '@/lib/adminAuth'
 import { normalizeJoinUsSettings } from '@/lib/joinUs'
 
 export const runtime = 'nodejs'
-
-const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
 
 type JoinUsSettingsPayload = {
   headerText?: string
@@ -19,38 +18,10 @@ type JoinUsSettingsPayload = {
   }>
 }
 
-async function requireAdmin(request: Request) {
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : ''
-
-  if (!token) {
-    throw new Error('Missing authorization token.')
-  }
-
-  const adminAuth = getFirebaseAdminAuth()
-  const adminDb = getFirebaseAdminDb()
-
-  const decoded = await adminAuth.verifyIdToken(token)
-  const requesterEmail = decoded.email?.toLowerCase() || ''
-
-  if (!requesterEmail) {
-    throw new Error('Unable to identify requester email.')
-  }
-
-  const rolesDoc = await adminDb.doc('adminSettings/roles').get()
-  const adminEmails = ((rolesDoc.data()?.emails as string[] | undefined) ?? []).map((entry) => entry.toLowerCase())
-  const isAllowedAdmin = requesterEmail === SUPER_ADMIN_EMAIL || adminEmails.includes(requesterEmail)
-
-  if (!isAllowedAdmin) {
-    throw new Error('Only admin users can access recruitment data.')
-  }
-
-  return { adminDb }
-}
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { adminDb } = await requireAdmin(request)
+    await requireAdmin(request, 'any')
+    const adminDb = getFirebaseAdminDb()
 
     const [settingsSnap, appsSnap] = await Promise.all([
       adminDb.doc('siteSettings/joinUsForm').get(),
@@ -75,9 +46,10 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { adminDb } = await requireAdmin(request)
+    await requireAdmin(request, 'any')
+    const adminDb = getFirebaseAdminDb()
     const payload = (await request.json()) as JoinUsSettingsPayload
 
     const settings = normalizeJoinUsSettings({

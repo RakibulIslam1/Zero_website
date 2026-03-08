@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
-import { getFirebaseAdminAuth, getFirebaseAdminDb } from '@/lib/firebaseAdmin'
+import { NextRequest, NextResponse } from 'next/server'
+import { getFirebaseAdminDb } from '@/lib/firebaseAdmin'
 import { defaultSiteContactSettings } from '@/lib/siteContact'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export const runtime = 'nodejs'
 
-const SUPER_ADMIN_EMAIL = 'rakibul.rir06@gmail.com'
 const SETTINGS_DOC_PATH = 'siteSettings/contact'
 
 type ContactSettingsPayload = {
@@ -12,35 +12,6 @@ type ContactSettingsPayload = {
   phones?: string[]
   email?: string
   officeHours?: string
-}
-
-async function requireAdmin(request: Request) {
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : ''
-
-  if (!token) {
-    throw new Error('Missing authorization token.')
-  }
-
-  const adminAuth = getFirebaseAdminAuth()
-  const adminDb = getFirebaseAdminDb()
-
-  const decoded = await adminAuth.verifyIdToken(token)
-  const requesterEmail = decoded.email?.toLowerCase() || ''
-
-  if (!requesterEmail) {
-    throw new Error('Unable to identify requester email.')
-  }
-
-  const rolesDoc = await adminDb.doc('adminSettings/roles').get()
-  const adminEmails = ((rolesDoc.data()?.emails as string[] | undefined) ?? []).map((entry) => entry.toLowerCase())
-  const isAllowedAdmin = requesterEmail === SUPER_ADMIN_EMAIL || adminEmails.includes(requesterEmail)
-
-  if (!isAllowedAdmin) {
-    throw new Error('Only admin users can update contact settings.')
-  }
-
-  return { adminDb }
 }
 
 function normalizeSettings(data: Record<string, unknown> | undefined) {
@@ -71,9 +42,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { adminDb } = await requireAdmin(request)
+    await requireAdmin(request, 'any')
+    const adminDb = getFirebaseAdminDb()
     const payload = (await request.json()) as ContactSettingsPayload
 
     const address = (payload.address || '').trim()

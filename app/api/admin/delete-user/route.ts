@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getFirebaseAdminAuth, getFirebaseAdminDb } from '@/lib/firebaseAdmin'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export const runtime = 'nodejs'
 
@@ -10,46 +11,12 @@ type DeleteUserPayload = {
   email?: string
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization') || ''
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : ''
-
-    if (!token) {
-      return NextResponse.json({ error: 'Missing authorization token.' }, { status: 401 })
-    }
+    await requireAdmin(request, 'any')
 
     const adminAuth = getFirebaseAdminAuth()
     const adminDb = getFirebaseAdminDb()
-
-    let decoded
-    try {
-      decoded = await adminAuth.verifyIdToken(token)
-    } catch (verifyError) {
-      const message = verifyError instanceof Error ? verifyError.message : 'Failed to verify admin token.'
-      return NextResponse.json({ error: `Token verification failed: ${message}` }, { status: 401 })
-    }
-    const requesterEmail = decoded.email?.toLowerCase() || ''
-
-    if (!requesterEmail) {
-      return NextResponse.json({ error: 'Unable to identify requester email.' }, { status: 403 })
-    }
-
-    let isAllowedAdmin = requesterEmail === SUPER_ADMIN_EMAIL
-    if (!isAllowedAdmin) {
-      try {
-        const rolesDoc = await adminDb.doc('adminSettings/roles').get()
-        const adminEmails = ((rolesDoc.data()?.emails as string[] | undefined) ?? []).map((entry) => entry.toLowerCase())
-        isAllowedAdmin = adminEmails.includes(requesterEmail)
-      } catch (rolesError) {
-        const message = rolesError instanceof Error ? rolesError.message : 'Failed to verify admin roles.'
-        return NextResponse.json({ error: `Role check failed: ${message}` }, { status: 500 })
-      }
-    }
-
-    if (!isAllowedAdmin) {
-      return NextResponse.json({ error: 'Only admin users can delete accounts.' }, { status: 403 })
-    }
 
     const { uid, email } = (await request.json()) as DeleteUserPayload
 

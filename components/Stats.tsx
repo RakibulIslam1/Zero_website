@@ -1,78 +1,71 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useEffect, useState, useRef } from 'react'
+import { Zap, TrendingUp, Plane, DollarSign } from 'lucide-react'
 
-const stats = [
-  { label: 'Happy Clients', value: 500, suffix: '+' },
-  { label: 'Projects Completed', value: 200, suffix: '+' },
-  { label: 'Years Experience', value: 10, suffix: '+' },
-  { label: 'Awards Won', value: 50, suffix: '+' },
+const reasons = [
+  {
+    icon: TrendingUp,
+    title: '3rd Largest Economy',
+    description: 'Japan has the world\'s 3rd largest economy, offering immense opportunities for career growth and professional development.',
+  },
+  {
+    icon: Zap,
+    title: 'Hi-Tech Country',
+    description: 'Japan is at the forefront of technology and innovation, providing an ideal environment for learning cutting-edge skills.',
+  },
+  {
+    icon: DollarSign,
+    title: 'High Part-Time Salary',
+    description: 'Students can work part-time and earn competitive wages, helping cover living expenses while studying in Japan.',
+  },
+  {
+    icon: Plane,
+    title: 'Visa-Free Access',
+    description: 'A Japanese student visa opens doors to visa-free or visa-on-arrival access to many countries worldwide.',
+  },
 ]
-
-function Counter({ value, suffix }: { value: number; suffix: string }) {
-  const [count, setCount] = useState(0)
-  const ref = useRef<HTMLSpanElement>(null)
-  const [hasStarted, setHasStarted] = useState(false)
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasStarted) {
-          setHasStarted(true)
-        }
-      },
-      { threshold: 0.5 }
-    )
-
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [hasStarted])
-
-  useEffect(() => {
-    if (!hasStarted) return
-    let start = 0
-    const duration = 2000
-    const step = (value / duration) * 10
-
-    const timer = setInterval(() => {
-      start += step
-      if (start >= value) {
-        setCount(value)
-        clearInterval(timer)
-      } else {
-        setCount(Math.floor(start))
-      }
-    }, 10)
-
-    return () => clearInterval(timer)
-  }, [hasStarted, value])
-
-  return (
-    <span ref={ref}>
-      {count}{suffix}
-    </span>
-  )
-}
 
 export default function Stats() {
   return (
     <section className="py-24 bg-accent">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-          {stats.map((stat, index) => (
+        <div className="text-center mb-14">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-4xl font-bold text-white mb-4"
+          >
+            Why Study in Japan?
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-red-100 text-lg max-w-2xl mx-auto"
+          >
+            Discover why thousands of Bangladeshi students choose Japan for their higher education.
+          </motion.p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {reasons.map((reason, index) => (
             <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              key={reason.title}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="text-center"
+              className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-white text-center hover:bg-white/20 transition-colors"
             >
-              <div className="text-4xl md:text-5xl font-bold text-white mb-2">
-                <Counter value={stat.value} suffix={stat.suffix} />
+              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <reason.icon size={28} className="text-yellow-300" />
               </div>
-              <div className="text-red-100 font-medium">{stat.label}</div>
+              <h3 className="text-lg font-bold mb-2">{reason.title}</h3>
+              <p className="text-red-100 text-sm leading-relaxed">{reason.description}</p>
             </motion.div>
           ))}
         </div>

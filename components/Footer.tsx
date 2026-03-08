@@ -1,47 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { Github, Twitter, Linkedin, Instagram } from 'lucide-react'
-import { defaultSiteContactSettings, loadSiteContactSettings, SiteContactSettings } from '@/lib/siteContact'
+import { Phone, Mail, MapPin } from 'lucide-react'
 
 export default function Footer() {
-  const [settings, setSettings] = useState<SiteContactSettings>(defaultSiteContactSettings)
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      const loadedSettings = await loadSiteContactSettings()
-      setSettings(loadedSettings)
-    }
-
-    void loadSettings()
-  }, [])
-
   return (
-    <footer className="bg-gray-900 dark:bg-black text-gray-300 py-12">
+    <footer className="bg-gray-900 text-gray-300 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="col-span-1 md:col-span-2">
-            <h3 className="text-2xl font-bold text-white tracking-widest mb-4">ZERO</h3>
+            <h3 className="text-xl font-bold text-white mb-2">Samurai</h3>
+            <p className="text-yellow-400 text-sm font-semibold mb-4">Japanese Language Training Center</p>
             <p className="text-gray-400 text-sm leading-relaxed max-w-md">
-              ZERO is a forward-thinking company dedicated to innovation, excellence, and delivering
-              transformative solutions that shape the future of technology.
+              Samurai Japanese Language Training center is one of the best Japanese language learning centers
+              and student visa consultancy firms in Bangladesh. We offer comprehensive educational services
+              to Bangladeshi students who intend to study in Japan and other developed countries.
             </p>
-            <div className="flex space-x-4 mt-6">
-              <a href="#" aria-label="GitHub" className="hover:text-accent transition-colors">
-                <Github size={20} />
-              </a>
-              <a href="#" aria-label="Twitter" className="hover:text-accent transition-colors">
-                <Twitter size={20} />
-              </a>
-              <a href="#" aria-label="LinkedIn" className="hover:text-accent transition-colors">
-                <Linkedin size={20} />
-              </a>
-              <a href="#" aria-label="Instagram" className="hover:text-accent transition-colors">
-                <Instagram size={20} />
-              </a>
-            </div>
           </div>
 
           {/* Quick Links */}
@@ -50,12 +25,16 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               {[
                 { href: '/', label: 'Home' },
-                { href: '/about', label: 'About Zero' },
-                { href: '/competitions', label: 'Competitions' },
+                { href: '/about', label: 'About Us' },
+                { href: '/japan-student-visa', label: 'Japan Student Visa' },
+                { href: '/ssw-visa', label: 'SSW Visa' },
+                { href: '/working-visa', label: 'Working Visa' },
+                { href: '/malaysia-student-visa', label: 'Malaysia Student Visa' },
+                { href: '/air-ticket-service', label: 'Air Ticket Service' },
                 { href: '/contact', label: 'Contact Us' },
               ].map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="hover:text-accent transition-colors">
+                  <Link href={link.href} className="hover:text-yellow-400 transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -66,19 +45,25 @@ export default function Footer() {
           {/* Contact Info */}
           <div>
             <h4 className="text-white font-semibold mb-4">Contact</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li>{settings.address}</li>
-              <li>{settings.email}</li>
-              {settings.phones.map((phone) => (
-                <li key={phone}>{phone}</li>
-              ))}
-              <li>{settings.officeHours}</li>
+            <ul className="space-y-3 text-sm text-gray-400">
+              <li className="flex items-start gap-2">
+                <MapPin size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+                <span>House-298, Shadinota Sharoni, Jamtula Mur, Uttar Badda, Dhaka-1212</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Phone size={16} className="text-yellow-400 flex-shrink-0" />
+                <span>01601687773, 01967016700</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Mail size={16} className="text-yellow-400 flex-shrink-0" />
+                <span>miahsuzan818@gmail.com</span>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-gray-800 mt-10 pt-6 text-center text-sm text-gray-500">
-          <p>© {new Date().getFullYear()} ZERO. All rights reserved.</p>
+          <p>© 2023 Samurai Japanese Language Training Center. All rights reserved.</p>
         </div>
       </div>
     </footer>

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { Phone, ArrowRight } from 'lucide-react'
 
 export default function CTA() {
   return (
@@ -13,25 +14,28 @@ export default function CTA() {
           viewport={{ once: true }}
           transition={{ duration: 0.7 }}
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-            Ready to Get Started?
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Start Your Journey to Japan Today
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-400 mb-10 leading-relaxed">
-            Join our mission and take part in real opportunities with Zero Competitions.
+          <p className="text-xl text-gray-600 mb-10 leading-relaxed">
+            Contact us now and let our expert counselors guide you every step of the way —
+            from language training to your student visa approval.
           </p>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/join-us"
-              className="px-4 sm:px-8 py-4 bg-accent text-white rounded-lg font-semibold hover:bg-accent/90 transition-colors duration-200 text-sm sm:text-lg"
+              href="/contact"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent text-white rounded-full font-semibold hover:bg-accent-dark transition-colors duration-200 text-lg"
             >
-              Join Us
+              Contact Us Now
+              <ArrowRight size={20} />
             </Link>
-            <Link
-              href="/competitions"
-              className="px-4 sm:px-8 py-4 bg-transparent border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-semibold hover:border-accent hover:text-accent transition-colors duration-200 text-sm sm:text-lg"
+            <a
+              href="tel:01601687773"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-transparent border-2 border-accent text-accent rounded-full font-semibold hover:bg-accent hover:text-white transition-colors duration-200 text-lg"
             >
-              View Competitions
-            </Link>
+              <Phone size={20} />
+              Call: 01601687773
+            </a>
           </div>
         </motion.div>
       </div>
