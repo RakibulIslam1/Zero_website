@@ -1492,8 +1492,7 @@ export default function AdminPage() {
                                 'options',
                                 event.target.value
                                   .split(',')
-                                  .map((entry) => entry.trim())
-                                  .filter(Boolean),
+                                  .map((entry) => entry.trim()),
                               )
                             }
                             placeholder="Option 1, Option 2"
