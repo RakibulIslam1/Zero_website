@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Plus } from 'lucide-react'
 import { useAuth, type UserProfile } from '@/components/AuthProvider'
 import { useNotification } from '@/components/NotificationProvider'
 import { competitions } from '@/lib/competitions'
@@ -173,6 +174,7 @@ export default function ProfilePage() {
     basePanY: 0,
   })
   const pinchDistanceRef = useRef<number | null>(null)
+  const profilePhotoInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -416,13 +418,86 @@ export default function ProfilePage() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         <aside className="lg:col-span-4">
           <div className="bg-white rounded-3xl p-6 border border-[#e8cfc9] shadow-sm">
-            <div className="w-56 h-56 rounded-full overflow-hidden bg-[#f4d8d2] flex items-center justify-center text-accent font-semibold text-5xl mx-auto border-4 border-[#f1d3cc]">
-              {(form.profilePhotoDataUrl || user.avatarDataUrl) ? (
-                <Image src={form.profilePhotoDataUrl || user.avatarDataUrl || ''} alt={user.fullName} width={224} height={224} className="w-full h-full object-cover" />
-              ) : (
-                user.fullName.slice(0, 1).toUpperCase()
+            <div className="relative w-56 h-56 mx-auto">
+              <div className="w-56 h-56 rounded-full overflow-hidden bg-[#f4d8d2] flex items-center justify-center text-accent font-semibold text-5xl border-4 border-[#f1d3cc]">
+                {(form.profilePhotoDataUrl || user.avatarDataUrl) ? (
+                  <Image src={form.profilePhotoDataUrl || user.avatarDataUrl || ''} alt={user.fullName} width={224} height={224} className="w-full h-full object-cover" />
+                ) : (
+                  user.fullName.slice(0, 1).toUpperCase()
+                )}
+              </div>
+
+              {editMode && (
+                <button
+                  type="button"
+                  onClick={() => profilePhotoInputRef.current?.click()}
+                  className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center shadow hover:bg-accent/90"
+                  aria-label="Upload profile photo"
+                  title="Upload profile photo"
+                >
+                  <Plus size={20} />
+                </button>
               )}
             </div>
+
+            {editMode && (
+              <>
+                <input
+                  ref={profilePhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePhotoChange}
+                  className="hidden"
+                />
+
+                {profilePhotoSourceDataUrl ? (
+                  <div className="mt-5 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 space-y-3">
+                    <p className="text-sm font-medium text-gray-700">Profile Photo Demo</p>
+                    <p className="text-xs text-gray-500">Drag to reframe. Use touchpad/mouse wheel or pinch to zoom. Saving profile will apply this framing automatically.</p>
+
+                    <div
+                      className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative touch-none"
+                      onWheel={handleProfilePreviewWheel}
+                      onPointerDown={handleProfilePreviewPointerDown}
+                      onPointerMove={handleProfilePreviewPointerMove}
+                      onPointerUp={handleProfilePreviewPointerUp}
+                      onPointerCancel={handleProfilePreviewPointerUp}
+                      onTouchStart={handleProfilePreviewTouchStart}
+                      onTouchMove={handleProfilePreviewTouchMove}
+                      onTouchEnd={handleProfilePreviewTouchEnd}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={profilePhotoSourceDataUrl}
+                        alt="Profile photo preview"
+                        className="absolute top-1/2 left-1/2 w-full h-full object-cover select-none"
+                        draggable={false}
+                        style={{
+                          transform: `translate(calc(-50% + ${profilePhotoPanX}px), calc(-50% + ${profilePhotoPanY}px)) scale(${profilePhotoZoom})`,
+                          transformOrigin: 'center center',
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfilePhotoZoom(1)
+                          setProfilePhotoPanX(0)
+                          setProfilePhotoPanY(0)
+                        }}
+                        className="px-4 py-2 rounded-xl border border-[#e8cfc9] text-sm font-semibold text-gray-700 hover:bg-[#f8dfda]"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-xs text-gray-500">Click the plus icon on your photo to upload and reframe.</p>
+                )}
+              </>
+            )}
 
             <div className="mt-6 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
               <h3 className="text-base font-semibold text-gray-900 mb-2">Registered Competitions</h3>
@@ -461,7 +536,9 @@ export default function ProfilePage() {
         </aside>
 
         <section className="lg:col-span-8 space-y-6">
-          <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm min-h-[192px] flex flex-col justify-center">
+          {!editMode && (
+            <>
+              <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm min-h-[192px] flex flex-col justify-center">
             <h1 className="text-3xl font-bold text-gray-900">{form.fullName || user.fullName}</h1>
             <p className="text-gray-600 mt-1">{form.email || user.email}</p>
             <p className="text-sm text-gray-500 mt-3">{heading}</p>
@@ -494,9 +571,9 @@ export default function ProfilePage() {
             {form.verificationStatus === 'cancelled' && form.verificationReason && (
               <p className="text-sm text-red-700 mt-1">Reason: {form.verificationReason}</p>
             )}
-          </div>
+              </div>
 
-          <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+              <div className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
             <h2 className="text-2xl font-bold text-gray-900 mb-5">Profile Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
@@ -528,7 +605,9 @@ export default function ProfilePage() {
                 <p className="text-gray-800 font-medium mt-1">{form.idNumber || 'Not provided'}</p>
               </div>
             </div>
-          </div>
+              </div>
+            </>
+          )}
 
           {editMode && (
             <div id="edit-profile" className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
@@ -581,58 +660,6 @@ export default function ProfilePage() {
                 <div>
                   <label className="text-sm font-medium text-gray-700">Birth Registration / Passport / NID Number *</label>
                   <input name="idNumber" value={form.idNumber} onChange={handleChange} required className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent" />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Profile Photo *</label>
-                  <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3" />
-
-                  {profilePhotoSourceDataUrl ? (
-                    <div className="mt-3 rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 space-y-3">
-                      <p className="text-sm font-medium text-gray-700">Profile Photo Demo</p>
-                      <p className="text-xs text-gray-500">Drag to reframe. Use touchpad/mouse wheel or pinch to zoom. Saving profile will apply this framing automatically.</p>
-
-                      <div
-                        className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative touch-none"
-                        onWheel={handleProfilePreviewWheel}
-                        onPointerDown={handleProfilePreviewPointerDown}
-                        onPointerMove={handleProfilePreviewPointerMove}
-                        onPointerUp={handleProfilePreviewPointerUp}
-                        onPointerCancel={handleProfilePreviewPointerUp}
-                        onTouchStart={handleProfilePreviewTouchStart}
-                        onTouchMove={handleProfilePreviewTouchMove}
-                        onTouchEnd={handleProfilePreviewTouchEnd}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={profilePhotoSourceDataUrl}
-                          alt="Profile photo preview"
-                          className="absolute top-1/2 left-1/2 w-full h-full object-cover select-none"
-                          draggable={false}
-                          style={{
-                            transform: `translate(calc(-50% + ${profilePhotoPanX}px), calc(-50% + ${profilePhotoPanY}px)) scale(${profilePhotoZoom})`,
-                            transformOrigin: 'center center',
-                          }}
-                        />
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfilePhotoZoom(1)
-                            setProfilePhotoPanX(0)
-                            setProfilePhotoPanY(0)
-                          }}
-                          className="px-4 py-2 rounded-xl border border-[#e8cfc9] text-sm font-semibold text-gray-700 hover:bg-[#f8dfda]"
-                        >
-                          Reset
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-xs text-gray-500">Upload an image, then drag/zoom in preview to reframe.</p>
-                  )}
                 </div>
 
                 <div>
