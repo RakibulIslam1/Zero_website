@@ -9,6 +9,7 @@ import { useAuth, UserProfile } from '@/components/AuthProvider'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { defaultSiteContactSettings } from '@/lib/siteContact'
 import { defaultSiteFeatureBannerSettings } from '@/lib/siteFeatureBanner'
+import { defaultJoinUsSettings, JoinUsField, JoinUsSettings } from '@/lib/joinUs'
 import { useNotification } from '@/components/NotificationProvider'
 
 type AdminProfileRow = UserProfile & { uid: string }
@@ -46,6 +47,17 @@ type SiteContactSettings = {
 type SiteFeatureBannerSettings = {
   imageDataUrl: string
   linkUrl: string
+}
+
+type RecruitmentApplication = {
+  id: string
+  fullName?: string
+  email?: string
+  phone?: string
+  photoDataUrl?: string
+  answers?: Record<string, string>
+  createdAt?: number
+  status?: string
 }
 
 const defaultSiteContactFormValues: SiteContactSettings = {
@@ -86,7 +98,7 @@ export default function AdminPage() {
   const [registrationsByUid, setRegistrationsByUid] = useState<Record<string, AdminRegistration[]>>({})
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([])
   const [loadingContactMessages, setLoadingContactMessages] = useState(true)
-  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages' | 'contactSettings' | 'featureBanner'>('overview')
+  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages' | 'contactSettings' | 'featureBanner' | 'recruitment'>('overview')
   const [selectedContactId, setSelectedContactId] = useState('')
   const [replyDraft, setReplyDraft] = useState('')
   const [isSendingReply, setIsSendingReply] = useState(false)
@@ -100,6 +112,13 @@ export default function AdminPage() {
   const [featureBannerMessage, setFeatureBannerMessage] = useState('')
   const [featureBannerUploadError, setFeatureBannerUploadError] = useState('')
   const [isDeletingContact, setIsDeletingContact] = useState(false)
+  const [joinUsSettings, setJoinUsSettings] = useState<JoinUsSettings>(defaultJoinUsSettings)
+  const [loadingJoinUsData, setLoadingJoinUsData] = useState(true)
+  const [savingJoinUsSettings, setSavingJoinUsSettings] = useState(false)
+  const [joinUsMessage, setJoinUsMessage] = useState('')
+  const [joinUsUploadError, setJoinUsUploadError] = useState('')
+  const [recruitmentApplications, setRecruitmentApplications] = useState<RecruitmentApplication[]>([])
+  const [selectedRecruitmentId, setSelectedRecruitmentId] = useState('')
 
   useEffect(() => {
     if (!error) return
@@ -124,6 +143,12 @@ export default function AdminPage() {
     notifySuccess(featureBannerMessage)
     setFeatureBannerMessage('')
   }, [featureBannerMessage, notifySuccess])
+
+  useEffect(() => {
+    if (!joinUsMessage) return
+    notifySuccess(joinUsMessage)
+    setJoinUsMessage('')
+  }, [joinUsMessage, notifySuccess])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -302,6 +327,52 @@ export default function AdminPage() {
     void loadFeatureBannerSettings()
   }, [authLoading, user, isAdmin])
 
+  useEffect(() => {
+    if (authLoading || !user || !isAdmin) return
+
+    const loadJoinUsData = async () => {
+      setLoadingJoinUsData(true)
+
+      try {
+        const token = await getFirebaseAuth()?.currentUser?.getIdToken(true)
+        if (!token) {
+          setLoadingJoinUsData(false)
+          return
+        }
+
+        const response = await fetch('/api/admin/join-us', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(payload.error || 'Failed to load recruitment data.')
+        }
+
+        const payload = (await response.json()) as {
+          settings?: JoinUsSettings
+          applications?: RecruitmentApplication[]
+        }
+
+        setJoinUsSettings(payload.settings || defaultJoinUsSettings)
+        const items = payload.applications ?? []
+        setRecruitmentApplications(items)
+        if (items.length > 0) {
+          setSelectedRecruitmentId((current) => current || items[0].id)
+        }
+      } catch (err) {
+        setError(toAdminError(err, 'Failed to load recruitment data.'))
+      } finally {
+        setLoadingJoinUsData(false)
+      }
+    }
+
+    void loadJoinUsData()
+  }, [authLoading, user, isAdmin])
+
   const grouped = useMemo(() => {
     return {
       verified: rows.filter((row) => row.verificationStatus === 'verified'),
@@ -318,6 +389,11 @@ export default function AdminPage() {
   const selectedContact = useMemo(
     () => contactMessages.find((entry) => entry.id === selectedContactId) ?? null,
     [contactMessages, selectedContactId],
+  )
+
+  const selectedRecruitment = useMemo(
+    () => recruitmentApplications.find((entry) => entry.id === selectedRecruitmentId) ?? null,
+    [recruitmentApplications, selectedRecruitmentId],
   )
 
   const toAdminError = (error: unknown, fallback: string) => {
@@ -773,6 +849,130 @@ export default function AdminPage() {
     }
   }
 
+  const handleJoinUsHeaderImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    setJoinUsUploadError('')
+
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setJoinUsUploadError('Please upload an image file only.')
+      return
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      setJoinUsUploadError('Image size must be 3MB or less.')
+      return
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('Failed to read image file.'))
+      reader.readAsDataURL(file)
+    }).catch(() => '')
+
+    if (!dataUrl) {
+      setJoinUsUploadError('Failed to process image file.')
+      return
+    }
+
+    setJoinUsSettings((prev) => ({ ...prev, headerImageDataUrl: dataUrl }))
+  }
+
+  const handleJoinUsFieldChange = <K extends keyof JoinUsField>(index: number, key: K, value: JoinUsField[K]) => {
+    setJoinUsSettings((prev) => ({
+      ...prev,
+      fields: prev.fields.map((field, fieldIndex) => (fieldIndex === index ? { ...field, [key]: value } : field)),
+    }))
+  }
+
+  const handleAddJoinUsField = () => {
+    setJoinUsSettings((prev) => ({
+      ...prev,
+      fields: [
+        ...prev.fields,
+        {
+          id: `field_${Date.now()}`,
+          label: 'New Field',
+          type: 'text',
+          required: false,
+          options: [],
+        },
+      ],
+    }))
+  }
+
+  const handleRemoveJoinUsField = (index: number) => {
+    setJoinUsSettings((prev) => ({
+      ...prev,
+      fields: prev.fields.filter((_, fieldIndex) => fieldIndex !== index),
+    }))
+  }
+
+  const handleSaveJoinUsSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError(null)
+    setJoinUsMessage('')
+    setSavingJoinUsSettings(true)
+
+    try {
+      const token = await getFirebaseAuth()?.currentUser?.getIdToken(true)
+      if (!token) {
+        throw new Error('You must be logged in as admin to update recruitment form.')
+      }
+
+      const response = await fetch('/api/admin/join-us', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(joinUsSettings),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to save recruitment form settings.')
+      }
+
+      setJoinUsMessage('Recruitment form settings updated successfully.')
+    } catch (err) {
+      setError(toAdminError(err, 'Failed to save recruitment form settings.'))
+    } finally {
+      setSavingJoinUsSettings(false)
+    }
+  }
+
+  const handleDownloadRecruitmentCsv = () => {
+    const header = ['Name', 'Email', 'Phone', 'Applied At', ...joinUsSettings.fields.map((field) => field.label)]
+    const rows = recruitmentApplications.map((entry) => {
+      const appliedAt = entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ''
+      const answerCells = joinUsSettings.fields.map((field) => String(entry.answers?.[field.id] || ''))
+      return [
+        String(entry.fullName || ''),
+        String(entry.email || ''),
+        String(entry.phone || ''),
+        appliedAt,
+        ...answerCells,
+      ]
+    })
+
+    const csvLines = [header, ...rows]
+      .map((cells) => cells.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([csvLines], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'join-us-applications.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (authLoading) {
     return (
       <main className="pt-28 pb-16 px-4">
@@ -907,6 +1107,16 @@ export default function AdminPage() {
                     <p className="text-xs text-gray-600 mt-1">Upload the homepage banner and set redirect link when users click it.</p>
                   </button>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('recruitment')}
+                    className="rounded-2xl border border-[#d8ead0] bg-[#eff9e8] px-5 py-4 text-left hover:bg-[#e3f4d8] transition-colors"
+                  >
+                    <p className="text-base font-semibold text-gray-900">Recruitment Section</p>
+                    <p className="text-xs text-gray-600 mt-1">Edit Join Us form, review applicants, export CSV, and download photos.</p>
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -919,7 +1129,9 @@ export default function AdminPage() {
                       ? 'Message Section'
                       : activeSection === 'contactSettings'
                         ? 'Contact Settings Section'
-                        : 'Feature Banner Section'}
+                        : activeSection === 'featureBanner'
+                          ? 'Feature Banner Section'
+                          : 'Recruitment Section'}
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   {activeSection === 'profiles'
@@ -928,7 +1140,9 @@ export default function AdminPage() {
                       ? 'Reply to users and continue conversation threads.'
                       : activeSection === 'contactSettings'
                         ? 'Edit public contact and address details at any time.'
-                        : 'Upload and link the feature banner shown on homepage.'}
+                        : activeSection === 'featureBanner'
+                          ? 'Upload and link the feature banner shown on homepage.'
+                          : 'Manage Join Us form and applicant submissions.'}
                 </p>
               </div>
               <button
@@ -1178,6 +1392,229 @@ export default function AdminPage() {
                   </button>
                 </div>
               </form>
+            )}
+          </section>
+        )}
+
+        {activeSection === 'recruitment' && (
+          <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm space-y-6">
+            {loadingJoinUsData ? (
+              <p className="text-sm text-gray-600">Loading recruitment settings and applications...</p>
+            ) : (
+              <>
+                <form onSubmit={handleSaveJoinUsSettings} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Join Us Header</label>
+                    <input
+                      type="text"
+                      value={joinUsSettings.headerText}
+                      onChange={(event) => setJoinUsSettings((prev) => ({ ...prev, headerText: event.target.value }))}
+                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Subheader</label>
+                    <textarea
+                      value={joinUsSettings.subheaderText}
+                      onChange={(event) => setJoinUsSettings((prev) => ({ ...prev, subheaderText: event.target.value }))}
+                      rows={2}
+                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Header Image</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => void handleJoinUsHeaderImageChange(event)}
+                      className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-accent file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-accent/90"
+                    />
+                    {joinUsUploadError && <p className="text-sm text-red-700 mt-2">{joinUsUploadError}</p>}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={joinUsSettings.headerImageDataUrl}
+                      alt="Join Us header preview"
+                      className="mt-3 w-full max-w-xl rounded-2xl border border-[#e8cfc9]"
+                    />
+                  </div>
+
+                  <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-gray-900">Dynamic Form Fields</p>
+                      <button
+                        type="button"
+                        onClick={handleAddJoinUsField}
+                        className="px-3 py-1.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90"
+                      >
+                        Add Field
+                      </button>
+                    </div>
+
+                    {joinUsSettings.fields.map((field, index) => (
+                      <div key={field.id} className="rounded-xl border border-[#ead3cd] bg-white p-3 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            value={field.label}
+                            onChange={(event) => handleJoinUsFieldChange(index, 'label', event.target.value)}
+                            placeholder="Field label"
+                            className="px-3 py-2 rounded-xl border border-[#e8cfc9]"
+                          />
+                          <select
+                            value={field.type}
+                            onChange={(event) => handleJoinUsFieldChange(index, 'type', event.target.value as JoinUsField['type'])}
+                            className="px-3 py-2 rounded-xl border border-[#e8cfc9]"
+                          >
+                            <option value="text">Text</option>
+                            <option value="email">Email</option>
+                            <option value="phone">Phone</option>
+                            <option value="textarea">Textarea</option>
+                            <option value="select">Dropdown</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={field.id}
+                            onChange={(event) => handleJoinUsFieldChange(index, 'id', event.target.value.replace(/\s+/g, '_').toLowerCase())}
+                            placeholder="Field ID"
+                            className="px-3 py-2 rounded-xl border border-[#e8cfc9]"
+                          />
+                        </div>
+
+                        {field.type === 'select' && (
+                          <input
+                            type="text"
+                            value={field.options.join(', ')}
+                            onChange={(event) =>
+                              handleJoinUsFieldChange(
+                                index,
+                                'options',
+                                event.target.value
+                                  .split(',')
+                                  .map((entry) => entry.trim())
+                                  .filter(Boolean),
+                              )
+                            }
+                            placeholder="Option 1, Option 2"
+                            className="w-full px-3 py-2 rounded-xl border border-[#e8cfc9]"
+                          />
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm text-gray-700 flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={field.required}
+                              onChange={(event) => handleJoinUsFieldChange(index, 'required', event.target.checked)}
+                            />
+                            Required
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveJoinUsField(index)}
+                            className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingJoinUsSettings}
+                    className="px-5 py-2.5 rounded-2xl bg-accent text-white font-semibold hover:bg-accent/90 disabled:opacity-60"
+                  >
+                    {savingJoinUsSettings ? 'Saving...' : 'Save Recruitment Form'}
+                  </button>
+                </form>
+
+                <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-base font-semibold text-gray-900">Applications ({recruitmentApplications.length})</p>
+                    <button
+                      type="button"
+                      onClick={handleDownloadRecruitmentCsv}
+                      className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800"
+                    >
+                      Download CSV
+                    </button>
+                  </div>
+
+                  {recruitmentApplications.length === 0 ? (
+                    <p className="text-sm text-gray-600 mt-3">No applications yet.</p>
+                  ) : (
+                    <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="space-y-2 max-h-[360px] overflow-auto pr-1">
+                        {recruitmentApplications.map((entry) => (
+                          <button
+                            key={entry.id}
+                            type="button"
+                            onClick={() => setSelectedRecruitmentId(entry.id)}
+                            className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
+                              selectedRecruitmentId === entry.id
+                                ? 'border-accent bg-[#fff4ef]'
+                                : 'border-[#ead3cd] bg-white hover:bg-[#fff4ef]'
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-gray-900">{entry.fullName || 'Unnamed Applicant'}</p>
+                            <p className="text-xs text-gray-600 mt-1">{entry.email || 'No email'} | {entry.phone || 'No phone'}</p>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="rounded-xl border border-[#ead3cd] bg-white p-3">
+                        {!selectedRecruitment ? (
+                          <p className="text-sm text-gray-600">Select an applicant to view details.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-base font-semibold text-gray-900">{selectedRecruitment.fullName || 'Unnamed Applicant'}</p>
+                              <p className="text-sm text-gray-700">Email: {selectedRecruitment.email || 'N/A'}</p>
+                              <p className="text-sm text-gray-700">Phone: {selectedRecruitment.phone || 'N/A'}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Applied:{' '}
+                                {selectedRecruitment.createdAt
+                                  ? new Date(selectedRecruitment.createdAt).toLocaleString()
+                                  : 'Unknown'}
+                              </p>
+                            </div>
+
+                            {selectedRecruitment.photoDataUrl && (
+                              <div className="space-y-2">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={selectedRecruitment.photoDataUrl}
+                                  alt={`${selectedRecruitment.fullName || 'Applicant'} profile`}
+                                  className="w-36 h-36 object-cover rounded-xl border border-[#e8cfc9]"
+                                />
+                                <a
+                                  href={selectedRecruitment.photoDataUrl}
+                                  download={`${(selectedRecruitment.fullName || 'applicant').replace(/\s+/g, '_')}_photo.jpg`}
+                                  className="inline-flex px-3 py-1.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90"
+                                >
+                                  Download Photo
+                                </a>
+                              </div>
+                            )}
+
+                            <div className="space-y-2">
+                              {joinUsSettings.fields.map((field) => (
+                                <div key={field.id} className="rounded-lg border border-[#f0d9d4] bg-[#fff9f8] px-3 py-2">
+                                  <p className="text-xs font-semibold text-gray-600">{field.label}</p>
+                                  <p className="text-sm text-gray-800">{String(selectedRecruitment.answers?.[field.id] || 'Not answered')}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </section>
         )}

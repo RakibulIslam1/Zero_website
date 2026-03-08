@@ -11,6 +11,7 @@ const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/about', label: 'About Zero' },
   { href: '/competitions', label: 'Competitions' },
+  { href: '/join-us', label: 'Join Us' },
   { href: '/contact', label: 'Contact Us' },
 ]
 
