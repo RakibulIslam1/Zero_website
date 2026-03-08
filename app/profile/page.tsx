@@ -311,7 +311,8 @@ export default function ProfilePage() {
   const handleProfilePreviewWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.stopPropagation()
-    const delta = -event.deltaY * 0.0015
+    const sensitivity = event.ctrlKey ? 0.01 : 0.004
+    const delta = -event.deltaY * sensitivity
     setProfilePhotoZoom((prev) => clampZoom(prev + delta))
   }
 
@@ -473,10 +474,6 @@ export default function ProfilePage() {
                     <div
                       className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative touch-none overscroll-contain"
                       onWheel={handleProfilePreviewWheel}
-                      onWheelCapture={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                      }}
                       onPointerDown={handleProfilePreviewPointerDown}
                       onPointerMove={handleProfilePreviewPointerMove}
                       onPointerUp={handleProfilePreviewPointerUp}
