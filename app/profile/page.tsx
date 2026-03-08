@@ -310,11 +310,15 @@ export default function ProfilePage() {
 
   const handleProfilePreviewWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     event.preventDefault()
+    event.stopPropagation()
     const delta = -event.deltaY * 0.0015
     setProfilePhotoZoom((prev) => clampZoom(prev + delta))
   }
 
   const handleProfilePreviewPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return
     }
@@ -336,6 +340,9 @@ export default function ProfilePage() {
       return
     }
 
+    event.preventDefault()
+    event.stopPropagation()
+
     const deltaX = event.clientX - dragState.startX
     const deltaY = event.clientY - dragState.startY
     setProfilePhotoPanX(clampPan(dragState.basePanX + deltaX))
@@ -343,6 +350,9 @@ export default function ProfilePage() {
   }
 
   const handleProfilePreviewPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+
     if (dragStateRef.current.pointerId === event.pointerId) {
       dragStateRef.current.active = false
       event.currentTarget.releasePointerCapture(event.pointerId)
@@ -350,6 +360,8 @@ export default function ProfilePage() {
   }
 
   const handleProfilePreviewTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+
     if (event.touches.length === 2) {
       const [first, second] = [event.touches[0], event.touches[1]]
       const dx = first.clientX - second.clientX
@@ -364,6 +376,7 @@ export default function ProfilePage() {
     }
 
     event.preventDefault()
+    event.stopPropagation()
     const [first, second] = [event.touches[0], event.touches[1]]
     const dx = first.clientX - second.clientX
     const dy = first.clientY - second.clientY
@@ -374,6 +387,8 @@ export default function ProfilePage() {
   }
 
   const handleProfilePreviewTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+
     if (event.touches.length < 2) {
       pinchDistanceRef.current = null
     }
@@ -456,8 +471,12 @@ export default function ProfilePage() {
                     <p className="text-xs text-gray-500">Drag to reframe. Use touchpad/mouse wheel or pinch to zoom. Saving profile will apply this framing automatically.</p>
 
                     <div
-                      className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative touch-none"
+                      className="w-56 h-56 mx-auto rounded-full overflow-hidden border-4 border-[#f1d3cc] bg-[#f4d8d2] relative touch-none overscroll-contain"
                       onWheel={handleProfilePreviewWheel}
+                      onWheelCapture={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
                       onPointerDown={handleProfilePreviewPointerDown}
                       onPointerMove={handleProfilePreviewPointerMove}
                       onPointerUp={handleProfilePreviewPointerUp}
