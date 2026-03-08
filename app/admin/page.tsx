@@ -1453,7 +1453,7 @@ export default function AdminPage() {
                     </div>
 
                     {joinUsSettings.fields.map((field, index) => (
-                      <div key={field.id} className="rounded-xl border border-[#ead3cd] bg-white p-3 space-y-3">
+                      <div key={`join-us-field-${index}`} className="rounded-xl border border-[#ead3cd] bg-white p-3 space-y-3">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           <input
                             type="text"
@@ -1477,7 +1477,7 @@ export default function AdminPage() {
                             type="text"
                             value={field.id}
                             onChange={(event) => handleJoinUsFieldChange(index, 'id', event.target.value.replace(/\s+/g, '_').toLowerCase())}
-                            placeholder="Field ID"
+                            placeholder="Variable Name (unique field id)"
                             className="px-3 py-2 rounded-xl border border-[#e8cfc9]"
                           />
                         </div>
