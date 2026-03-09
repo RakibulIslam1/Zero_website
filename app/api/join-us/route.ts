@@ -3,6 +3,7 @@ import { getFirebaseAdminDb } from '@/lib/firebaseAdmin'
 import { JoinUsAnswerValue, normalizeJoinUsSettings } from '@/lib/joinUs'
 
 export const runtime = 'nodejs'
+const MAX_PROFILE_DATA_URL_CHARS = 420 * 1024
 
 type JoinUsApplyPayload = {
   fullName?: string
@@ -38,6 +39,13 @@ export async function POST(request: Request) {
 
     if (!fullName || !email || !phone || !photoDataUrl) {
       return NextResponse.json({ error: 'Name, email, phone, and photo are required.' }, { status: 400 })
+    }
+
+    if (photoDataUrl.length > MAX_PROFILE_DATA_URL_CHARS) {
+      return NextResponse.json(
+        { error: 'Uploaded photo is too large. Please choose a smaller image.' },
+        { status: 400 },
+      )
     }
 
     const adminDb = getFirebaseAdminDb()

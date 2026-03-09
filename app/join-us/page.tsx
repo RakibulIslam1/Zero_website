@@ -18,6 +18,41 @@ type JoinUsFormState = {
 }
 
 const MAX_DYNAMIC_FILE_SIZE_BYTES = 700 * 1024
+const MAX_PROFILE_UPLOAD_BYTES = 3 * 1024 * 1024
+const MAX_PROFILE_DATA_URL_CHARS = 360 * 1024
+
+async function compressImageToDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file)
+  const maxSide = 900
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+  const width = Math.max(1, Math.round(bitmap.width * scale))
+  const height = Math.max(1, Math.round(bitmap.height * scale))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('Failed to process uploaded photo.')
+  }
+
+  context.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close()
+
+  const qualitySteps = [0.8, 0.7, 0.6, 0.5, 0.4]
+  let best = ''
+
+  for (const quality of qualitySteps) {
+    const next = canvas.toDataURL('image/jpeg', quality)
+    best = next
+    if (next.length <= MAX_PROFILE_DATA_URL_CHARS) {
+      return next
+    }
+  }
+
+  return best
+}
 
 export default function JoinUsPage() {
   const [settings, setSettings] = useState<JoinUsSettings>(defaultJoinUsSettings)
@@ -119,20 +154,20 @@ export default function JoinUsPage() {
       return
     }
 
-    if (file.size > 3 * 1024 * 1024) {
+    if (file.size > MAX_PROFILE_UPLOAD_BYTES) {
       setError('Image size must be 3MB or less.')
       return
     }
 
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result || ''))
-      reader.onerror = () => reject(new Error('Failed to read image file.'))
-      reader.readAsDataURL(file)
-    }).catch(() => '')
+    const dataUrl = await compressImageToDataUrl(file).catch(() => '')
 
     if (!dataUrl) {
       setError('Failed to process image file.')
+      return
+    }
+
+    if (dataUrl.length > MAX_PROFILE_DATA_URL_CHARS) {
+      setError('Image is still too large after compression. Please use a smaller photo.')
       return
     }
 
