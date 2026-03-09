@@ -66,6 +66,13 @@ function reorderSections(sections: CompetitionPageSection[], fromIndex: number, 
   return next
 }
 
+function toDateInputValue(value: string) {
+  if (!value) return ''
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return parsed.toISOString().slice(0, 10)
+}
+
 export default function CompetitionsCmsAdminPage() {
   const router = useRouter()
   const { user, loading, isAdmin } = useAuth()
@@ -356,8 +363,8 @@ export default function CompetitionsCmsAdminPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
                     <input
-                      type="text"
-                      value={selected.date}
+                      type="date"
+                      value={toDateInputValue(selected.date)}
                       onChange={(event) => updateSelected((current) => ({ ...current, date: event.target.value }))}
                       className="w-full px-4 py-2.5 rounded-xl border border-[#e8cfc9]"
                     />
