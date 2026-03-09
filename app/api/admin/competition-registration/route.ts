@@ -69,9 +69,11 @@ export async function GET(request: Request) {
       ? await adminDb.collection('competitionRegistrationApplications').where('competitionId', '==', competitionId).get()
       : await adminDb.collection('competitionRegistrationApplications').limit(1000).get()
 
-    const applications = (applicationsSnap.docs
-      .map((docItem) => ({ id: docItem.id, ...(docItem.data() as Record<string, unknown>) }))
-      as Array<{ id: string; createdAt?: number } & Record<string, unknown>>)
+    const mappedApplications = applicationsSnap.docs.map((docItem) => ({
+      id: docItem.id,
+      ...(docItem.data() as Record<string, unknown>),
+    }))
+    const applications = (mappedApplications as Array<{ id: string; createdAt?: number } & Record<string, unknown>>)
       .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
 
     if (!competitionId) {
