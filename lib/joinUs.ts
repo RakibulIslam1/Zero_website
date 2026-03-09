@@ -4,7 +4,9 @@ export type JoinUsFileAnswer = {
   fileName: string
   mimeType: string
   size: number
-  dataUrl: string
+  dataUrl?: string
+  downloadUrl?: string
+  storagePath?: string
 }
 
 export type JoinUsAnswerValue = string | JoinUsFileAnswer
@@ -16,7 +18,7 @@ export function isJoinUsFileAnswer(value: unknown): value is JoinUsFileAnswer {
     typeof entry.fileName === 'string' &&
     typeof entry.mimeType === 'string' &&
     typeof entry.size === 'number' &&
-    typeof entry.dataUrl === 'string'
+    (typeof entry.dataUrl === 'string' || typeof entry.downloadUrl === 'string')
   )
 }
 

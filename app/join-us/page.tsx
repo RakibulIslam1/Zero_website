@@ -1,6 +1,8 @@
 'use client'
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+import { getFirebaseStorageClient } from '@/lib/firebase'
 import {
   defaultJoinUsSettings,
   isJoinUsFileAnswer,
@@ -9,21 +11,38 @@ import {
   JoinUsSettings,
 } from '@/lib/joinUs'
 
+type JoinUsPendingFileAnswer = {
+  fileName: string
+  mimeType: string
+  size: number
+  file: File
+}
+
+type JoinUsLocalAnswerValue = string | JoinUsPendingFileAnswer
+
 type JoinUsFormState = {
   fullName: string
   email: string
   phone: string
-  photoDataUrl: string
-  answers: Record<string, JoinUsAnswerValue>
+  profilePhotoFile: File | null
+  profilePhotoPreviewUrl: string
+  answers: Record<string, JoinUsLocalAnswerValue>
 }
 
-const MAX_DYNAMIC_FILE_SIZE_BYTES = 700 * 1024
-const MAX_PROFILE_UPLOAD_BYTES = 3 * 1024 * 1024
-const MAX_PROFILE_DATA_URL_CHARS = 360 * 1024
+const MAX_DYNAMIC_FILE_SIZE_BYTES = 5 * 1024 * 1024
+const MAX_PROFILE_UPLOAD_BYTES = 8 * 1024 * 1024
 
-async function compressImageToDataUrl(file: File): Promise<string> {
+function sanitizeFileName(value: string) {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+function createUploadSuffix() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+async function compressImageFile(file: File): Promise<File> {
   const bitmap = await createImageBitmap(file)
-  const maxSide = 900
+  const maxSide = 1200
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
   const width = Math.max(1, Math.round(bitmap.width * scale))
   const height = Math.max(1, Math.round(bitmap.height * scale))
@@ -40,18 +59,31 @@ async function compressImageToDataUrl(file: File): Promise<string> {
   context.drawImage(bitmap, 0, 0, width, height)
   bitmap.close()
 
-  const qualitySteps = [0.8, 0.7, 0.6, 0.5, 0.4]
-  let best = ''
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((nextBlob) => resolve(nextBlob), 'image/jpeg', 0.75)
+  })
 
-  for (const quality of qualitySteps) {
-    const next = canvas.toDataURL('image/jpeg', quality)
-    best = next
-    if (next.length <= MAX_PROFILE_DATA_URL_CHARS) {
-      return next
-    }
+  if (!blob) {
+    throw new Error('Failed to compress uploaded photo.')
   }
 
-  return best
+  return new File([blob], `${sanitizeFileName(file.name || 'photo')}.jpg`, { type: 'image/jpeg' })
+}
+
+async function uploadFileToStorage(file: File, pathPrefix: string) {
+  const storage = getFirebaseStorageClient()
+  if (!storage) {
+    throw new Error('Firebase Storage is not configured. Set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET.')
+  }
+
+  const safeName = sanitizeFileName(file.name || 'upload.bin')
+  const storagePath = `${pathPrefix}/${createUploadSuffix()}-${safeName}`
+  const fileRef = ref(storage, storagePath)
+  await uploadBytes(fileRef, file, {
+    contentType: file.type || 'application/octet-stream',
+  })
+  const downloadUrl = await getDownloadURL(fileRef)
+  return { downloadUrl, storagePath }
 }
 
 export default function JoinUsPage() {
@@ -64,9 +96,18 @@ export default function JoinUsPage() {
     fullName: '',
     email: '',
     phone: '',
-    photoDataUrl: '',
+    profilePhotoFile: null,
+    profilePhotoPreviewUrl: '',
     answers: {},
   })
+
+  useEffect(() => {
+    return () => {
+      if (formState.profilePhotoPreviewUrl) {
+        URL.revokeObjectURL(formState.profilePhotoPreviewUrl)
+      }
+    }
+  }, [formState.profilePhotoPreviewUrl])
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -110,28 +151,16 @@ export default function JoinUsPage() {
     }
 
     if (file.size > MAX_DYNAMIC_FILE_SIZE_BYTES) {
-      setError('Uploaded file is too large. Please keep each dynamic file under 700KB.')
-      return
-    }
-
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result || ''))
-      reader.onerror = () => reject(new Error('Failed to read uploaded file.'))
-      reader.readAsDataURL(file)
-    }).catch(() => '')
-
-    if (!dataUrl) {
-      setError('Failed to process uploaded file.')
+      setError('Uploaded file is too large. Please keep each dynamic file under 5MB.')
       return
     }
 
     setError('')
-    const nextAnswer: JoinUsFileAnswer = {
+    const nextAnswer: JoinUsPendingFileAnswer = {
       fileName: file.name,
       mimeType: file.type || 'application/octet-stream',
       size: file.size,
-      dataUrl,
+      file,
     }
 
     setFormState((prev) => ({
@@ -155,27 +184,29 @@ export default function JoinUsPage() {
     }
 
     if (file.size > MAX_PROFILE_UPLOAD_BYTES) {
-      setError('Image size must be 3MB or less.')
+      setError('Image size must be 8MB or less.')
       return
     }
 
-    const dataUrl = await compressImageToDataUrl(file).catch(() => '')
+    const compressedFile = await compressImageFile(file).catch(() => null)
 
-    if (!dataUrl) {
+    if (!compressedFile) {
       setError('Failed to process image file.')
       return
     }
 
-    if (dataUrl.length > MAX_PROFILE_DATA_URL_CHARS) {
-      setError('Image is still too large after compression. Please use a smaller photo.')
-      return
-    }
-
+    const previewUrl = URL.createObjectURL(compressedFile)
     setError('')
-    setFormState((prev) => ({
-      ...prev,
-      photoDataUrl: dataUrl,
-    }))
+    setFormState((prev) => {
+      if (prev.profilePhotoPreviewUrl) {
+        URL.revokeObjectURL(prev.profilePhotoPreviewUrl)
+      }
+      return {
+        ...prev,
+        profilePhotoFile: compressedFile,
+        profilePhotoPreviewUrl: previewUrl,
+      }
+    })
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -188,7 +219,7 @@ export default function JoinUsPage() {
       return
     }
 
-    if (!formState.photoDataUrl) {
+    if (!formState.profilePhotoFile) {
       setError('Profile photo is required.')
       return
     }
@@ -198,7 +229,7 @@ export default function JoinUsPage() {
       const value = formState.answers[fieldId]
       const hasValue =
         field?.type === 'file'
-          ? isJoinUsFileAnswer(value) && Boolean(value.dataUrl)
+          ? Boolean(value && typeof value === 'object' && 'file' in value)
           : Boolean(String(value || '').trim())
 
       if (!hasValue) {
@@ -210,12 +241,43 @@ export default function JoinUsPage() {
     setSubmitting(true)
 
     try {
+      const photoUpload = await uploadFileToStorage(formState.profilePhotoFile, 'join-us/profile-photos')
+
+      const preparedAnswers: Record<string, JoinUsAnswerValue> = {}
+
+      for (const field of settings.fields) {
+        const value = formState.answers[field.id]
+        if (typeof value === 'string') {
+          preparedAnswers[field.id] = value
+          continue
+        }
+
+        if (value && typeof value === 'object' && 'file' in value) {
+          const uploaded = await uploadFileToStorage(value.file, 'join-us/attachments')
+          const fileAnswer: JoinUsFileAnswer = {
+            fileName: value.fileName,
+            mimeType: value.mimeType,
+            size: value.size,
+            downloadUrl: uploaded.downloadUrl,
+            storagePath: uploaded.storagePath,
+          }
+          preparedAnswers[field.id] = fileAnswer
+        }
+      }
+
       const response = await fetch('/api/join-us', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formState),
+        body: JSON.stringify({
+          fullName: formState.fullName,
+          email: formState.email,
+          phone: formState.phone,
+          photoUrl: photoUpload.downloadUrl,
+          photoStoragePath: photoUpload.storagePath,
+          answers: preparedAnswers,
+        }),
       })
 
       if (!response.ok) {
@@ -224,12 +286,18 @@ export default function JoinUsPage() {
       }
 
       setMessage('Application submitted successfully. We will contact you soon.')
-      setFormState({
-        fullName: '',
-        email: '',
-        phone: '',
-        photoDataUrl: '',
-        answers: {},
+      setFormState((prev) => {
+        if (prev.profilePhotoPreviewUrl) {
+          URL.revokeObjectURL(prev.profilePhotoPreviewUrl)
+        }
+        return {
+          fullName: '',
+          email: '',
+          phone: '',
+          profilePhotoFile: null,
+          profilePhotoPreviewUrl: '',
+          answers: {},
+        }
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit application.')
@@ -296,15 +364,15 @@ export default function JoinUsPage() {
                     accept="image/*"
                     onChange={(event) => void handlePhotoChange(event)}
                     className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-accent file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-accent/90"
-                    required={!formState.photoDataUrl}
+                    required={!formState.profilePhotoFile}
                   />
                 </div>
               </div>
 
-              {formState.photoDataUrl && (
+              {formState.profilePhotoPreviewUrl && (
                 <div className="rounded-2xl border border-[#efd6d1] bg-[#fff9f8] p-3 w-fit">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={formState.photoDataUrl} alt="Applicant preview" className="w-28 h-28 object-cover rounded-xl" />
+                  <img src={formState.profilePhotoPreviewUrl} alt="Applicant preview" className="w-28 h-28 object-cover rounded-xl" />
                 </div>
               )}
 
@@ -317,7 +385,10 @@ export default function JoinUsPage() {
 
                   {(() => {
                     const answerValue = formState.answers[field.id]
-                    const fileAnswer = isJoinUsFileAnswer(answerValue) ? answerValue : null
+                    const fileAnswer =
+                      answerValue && typeof answerValue === 'object' && 'file' in answerValue
+                        ? answerValue
+                        : null
                     const textValue = typeof answerValue === 'string' ? answerValue : ''
 
                     if (field.type === 'textarea') {
@@ -375,7 +446,7 @@ export default function JoinUsPage() {
                             className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-accent file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-accent/90"
                             required={field.required && !fileAnswer}
                           />
-                          <p className="text-xs text-gray-500">Any file type is supported. Max size: 700KB per field.</p>
+                          <p className="text-xs text-gray-500">Any file type is supported. Max size: 5MB per field.</p>
                           {fileAnswer && (
                             <p className="text-xs text-green-700">
                               Selected: {fileAnswer.fileName} ({Math.round(fileAnswer.size / 1024)} KB)

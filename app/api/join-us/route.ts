@@ -3,12 +3,13 @@ import { getFirebaseAdminDb } from '@/lib/firebaseAdmin'
 import { JoinUsAnswerValue, normalizeJoinUsSettings } from '@/lib/joinUs'
 
 export const runtime = 'nodejs'
-const MAX_PROFILE_DATA_URL_CHARS = 420 * 1024
 
 type JoinUsApplyPayload = {
   fullName?: string
   email?: string
   phone?: string
+  photoUrl?: string
+  photoStoragePath?: string
   photoDataUrl?: string
   answers?: Record<string, JoinUsAnswerValue>
 }
@@ -34,18 +35,13 @@ export async function POST(request: Request) {
     const fullName = String(payload.fullName || '').trim()
     const email = String(payload.email || '').trim()
     const phone = String(payload.phone || '').trim()
+    const photoUrl = String(payload.photoUrl || '').trim()
+    const photoStoragePath = String(payload.photoStoragePath || '').trim()
     const photoDataUrl = String(payload.photoDataUrl || '').trim()
     const answers = payload.answers && typeof payload.answers === 'object' ? payload.answers : {}
 
-    if (!fullName || !email || !phone || !photoDataUrl) {
+    if (!fullName || !email || !phone || (!photoUrl && !photoDataUrl)) {
       return NextResponse.json({ error: 'Name, email, phone, and photo are required.' }, { status: 400 })
-    }
-
-    if (photoDataUrl.length > MAX_PROFILE_DATA_URL_CHARS) {
-      return NextResponse.json(
-        { error: 'Uploaded photo is too large. Please choose a smaller image.' },
-        { status: 400 },
-      )
     }
 
     const adminDb = getFirebaseAdminDb()
@@ -53,6 +49,8 @@ export async function POST(request: Request) {
       fullName,
       email,
       phone,
+      photoUrl,
+      photoStoragePath,
       photoDataUrl,
       answers,
       createdAt: Date.now(),

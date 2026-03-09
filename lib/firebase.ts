@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app'
 import { getAuth, type Auth } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
+import { getStorage, type FirebaseStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,6 +14,7 @@ const firebaseConfig = {
 
 let authInstance: Auth | null = null
 let firestoreInstance: Firestore | null = null
+let storageInstance: FirebaseStorage | null = null
 
 export function getFirebaseAuth() {
   if (typeof window === 'undefined') return null
@@ -52,4 +54,25 @@ export function getFirestoreDb() {
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
   firestoreInstance = getFirestore(app)
   return firestoreInstance
+}
+
+export function getFirebaseStorageClient() {
+  if (typeof window === 'undefined') return null
+  if (storageInstance) return storageInstance
+
+  const hasRequiredConfig = Boolean(
+    firebaseConfig.apiKey &&
+      firebaseConfig.authDomain &&
+      firebaseConfig.projectId &&
+      firebaseConfig.appId &&
+      firebaseConfig.storageBucket
+  )
+
+  if (!hasRequiredConfig) {
+    return null
+  }
+
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
+  storageInstance = getStorage(app)
+  return storageInstance
 }
