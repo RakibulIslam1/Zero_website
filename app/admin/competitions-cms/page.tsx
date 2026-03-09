@@ -27,6 +27,15 @@ function createEmptyCompetition(): CompetitionCmsItem {
         body: 'Write competition details here.',
         imageUrl: '',
         imagePosition: 'center center',
+        layout: 'stacked',
+        textAlign: 'left',
+        appearance: 'boxed',
+        videoUrl: '',
+        videoPosition: 'none',
+        linkLabel: '',
+        linkUrl: '',
+        buttonLabel: '',
+        buttonUrl: '',
       },
     ],
     createdAt: now,
@@ -410,6 +419,15 @@ export default function CompetitionsCmsAdminPage() {
                               body: '',
                               imageUrl: '',
                               imagePosition: 'center center',
+                              layout: 'stacked',
+                              textAlign: 'left',
+                              appearance: 'boxed',
+                              videoUrl: '',
+                              videoPosition: 'none',
+                              linkLabel: '',
+                              linkUrl: '',
+                              buttonLabel: '',
+                              buttonUrl: '',
                             },
                           ],
                         }))
@@ -483,6 +501,70 @@ export default function CompetitionsCmsAdminPage() {
                       />
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <select
+                          value={section.layout}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, layout: event.target.value as CompetitionPageSection['layout'] } : entry,
+                              ),
+                            }))
+                          }
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        >
+                          <option value="stacked">Layout: Stacked</option>
+                          <option value="image-left">Layout: Image Left / Text Right</option>
+                          <option value="image-right">Layout: Text Left / Image Right</option>
+                        </select>
+                        <select
+                          value={section.textAlign}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, textAlign: event.target.value as CompetitionPageSection['textAlign'] } : entry,
+                              ),
+                            }))
+                          }
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        >
+                          <option value="left">Text Align: Left</option>
+                          <option value="center">Text Align: Center</option>
+                          <option value="right">Text Align: Right</option>
+                        </select>
+                        <select
+                          value={section.appearance}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, appearance: event.target.value as CompetitionPageSection['appearance'] } : entry,
+                              ),
+                            }))
+                          }
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        >
+                          <option value="boxed">Appearance: Border Box</option>
+                          <option value="transparent">Appearance: Transparent</option>
+                        </select>
+                        <select
+                          value={section.videoPosition}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, videoPosition: event.target.value as CompetitionPageSection['videoPosition'] } : entry,
+                              ),
+                            }))
+                          }
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        >
+                          <option value="none">Video Position: None</option>
+                          <option value="left">Video Position: Left</option>
+                          <option value="right">Video Position: Right</option>
+                          <option value="below">Video Position: Below</option>
+                        </select>
                         <input
                           type="text"
                           value={section.imagePosition}
@@ -495,6 +577,76 @@ export default function CompetitionsCmsAdminPage() {
                             }))
                           }
                           placeholder="Image position (e.g. center center)"
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        />
+                        <input
+                          type="text"
+                          value={section.videoUrl}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, videoUrl: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                          placeholder="Video URL (YouTube embed/watch or MP4 URL)"
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        />
+                        <input
+                          type="text"
+                          value={section.linkLabel}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, linkLabel: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                          placeholder="Link label"
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        />
+                        <input
+                          type="text"
+                          value={section.linkUrl}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, linkUrl: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                          placeholder="Link URL"
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        />
+                        <input
+                          type="text"
+                          value={section.buttonLabel}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, buttonLabel: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                          placeholder="Button label"
+                          className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
+                        />
+                        <input
+                          type="text"
+                          value={section.buttonUrl}
+                          onChange={(event) =>
+                            updateSelected((current) => ({
+                              ...current,
+                              pageSections: current.pageSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, buttonUrl: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                          placeholder="Button URL"
                           className="px-3 py-2 rounded-lg border border-[#e8cfc9]"
                         />
                         <input

@@ -5,6 +5,17 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { CompetitionCmsItem } from '@/lib/competitionCms'
 
+function toYoutubeEmbedUrl(url: string) {
+  const value = url.trim()
+  if (!value) return ''
+  const watchMatch = value.match(/(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{6,})/)
+  if (watchMatch?.[1]) return `https://www.youtube.com/embed/${watchMatch[1]}`
+  const shortMatch = value.match(/(?:youtu\.be\/)([a-zA-Z0-9_-]{6,})/)
+  if (shortMatch?.[1]) return `https://www.youtube.com/embed/${shortMatch[1]}`
+  if (value.includes('youtube.com/embed/')) return value
+  return ''
+}
+
 export default function CompetitionDetailsPage() {
   const params = useParams<{ slug: string }>()
   const slug = String(params.slug || '')
@@ -85,19 +96,90 @@ export default function CompetitionDetailsPage() {
 
       <section className="max-w-6xl mx-auto px-4 mt-8 space-y-5">
         {item.pageSections.map((section) => (
-          <article key={section.id} className="rounded-3xl border border-[#e8cfc9] bg-white p-6 shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-900">{section.heading}</h2>
-            <p className="text-gray-700 mt-3 whitespace-pre-wrap leading-relaxed">{section.body}</p>
-            {section.imageUrl && (
+          (() => {
+            const ytEmbed = toYoutubeEmbedUrl(section.videoUrl || '')
+            const textAlignClass =
+              section.textAlign === 'center'
+                ? 'text-center'
+                : section.textAlign === 'right'
+                  ? 'text-right'
+                  : 'text-left'
+            const sectionShellClass =
+              section.appearance === 'transparent'
+                ? 'rounded-3xl bg-transparent p-2'
+                : 'rounded-3xl border border-[#e8cfc9] bg-white p-6 shadow-sm'
+
+            const imageBlock = section.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={section.imageUrl}
                 alt={section.heading}
-                className="w-full h-72 rounded-2xl object-cover mt-4"
+                className="w-full h-72 rounded-2xl object-cover"
                 style={{ objectPosition: section.imagePosition || 'center center' }}
               />
-            )}
-          </article>
+            ) : null
+
+            const videoBlock = section.videoUrl ? (
+              ytEmbed ? (
+                <iframe
+                  src={ytEmbed}
+                  title={`${section.heading} video`}
+                  className="w-full h-72 rounded-2xl border border-[#e8cfc9]"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={section.videoUrl}
+                  controls
+                  className="w-full h-72 rounded-2xl border border-[#e8cfc9] object-cover"
+                />
+              )
+            ) : null
+
+            const textBlock = (
+              <div className={`space-y-3 ${textAlignClass}`}>
+                <h2 className="text-2xl font-semibold text-gray-900">{section.heading}</h2>
+                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{section.body}</p>
+                <div className={`flex flex-wrap gap-3 ${section.textAlign === 'right' ? 'justify-end' : section.textAlign === 'center' ? 'justify-center' : 'justify-start'}`}>
+                  {section.linkLabel && section.linkUrl && (
+                    <a href={section.linkUrl} target="_blank" rel="noreferrer" className="text-accent font-semibold hover:underline">
+                      {section.linkLabel}
+                    </a>
+                  )}
+                  {section.buttonLabel && section.buttonUrl && (
+                    <a href={section.buttonUrl} target="_blank" rel="noreferrer" className="inline-flex px-5 py-2.5 rounded-full bg-accent text-white font-semibold hover:bg-accent/90">
+                      {section.buttonLabel}
+                    </a>
+                  )}
+                </div>
+              </div>
+            )
+
+            const leftMedia = section.videoPosition === 'left' ? videoBlock : imageBlock
+            const rightMedia = section.videoPosition === 'right' ? videoBlock : section.layout === 'image-right' ? imageBlock : null
+
+            if (section.layout === 'stacked') {
+              return (
+                <article key={section.id} className={sectionShellClass}>
+                  {textBlock}
+                  {imageBlock && <div className="mt-4">{imageBlock}</div>}
+                  {videoBlock && (section.videoPosition === 'below' || section.videoPosition === 'none') && <div className="mt-4">{videoBlock}</div>}
+                </article>
+              )
+            }
+
+            const isImageLeft = section.layout === 'image-left'
+            return (
+              <article key={section.id} className={sectionShellClass}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  {isImageLeft ? (leftMedia || imageBlock || videoBlock) : textBlock}
+                  {isImageLeft ? textBlock : (rightMedia || imageBlock || videoBlock)}
+                </div>
+                {videoBlock && section.videoPosition === 'below' && <div className="mt-4">{videoBlock}</div>}
+              </article>
+            )
+          })()
         ))}
       </section>
     </main>

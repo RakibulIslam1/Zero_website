@@ -8,6 +8,15 @@ export type CompetitionPageSection = {
   body: string
   imageUrl: string
   imagePosition: string
+  layout: 'stacked' | 'image-left' | 'image-right'
+  textAlign: 'left' | 'center' | 'right'
+  appearance: 'boxed' | 'transparent'
+  videoUrl: string
+  videoPosition: 'none' | 'left' | 'right' | 'below'
+  linkLabel: string
+  linkUrl: string
+  buttonLabel: string
+  buttonUrl: string
 }
 
 export type CompetitionCmsItem = {
@@ -41,6 +50,15 @@ function defaultSections(name: string, description: string): CompetitionPageSect
       body: description || 'Describe this competition details, rules, and timeline.',
       imageUrl: '',
       imagePosition: 'center center',
+      layout: 'stacked',
+      textAlign: 'left',
+      appearance: 'boxed',
+      videoUrl: '',
+      videoPosition: 'none',
+      linkLabel: '',
+      linkUrl: '',
+      buttonLabel: '',
+      buttonUrl: '',
     },
   ]
 }
@@ -60,6 +78,15 @@ export function normalizeCompetitionCmsItem(input: Record<string, unknown>, fall
         body: String(section.body || ''),
         imageUrl: String(section.imageUrl || ''),
         imagePosition: String(section.imagePosition || 'center center'),
+        layout: (String(section.layout || 'stacked') as CompetitionPageSection['layout']),
+        textAlign: (String(section.textAlign || 'left') as CompetitionPageSection['textAlign']),
+        appearance: (String(section.appearance || 'boxed') as CompetitionPageSection['appearance']),
+        videoUrl: String(section.videoUrl || ''),
+        videoPosition: (String(section.videoPosition || 'none') as CompetitionPageSection['videoPosition']),
+        linkLabel: String(section.linkLabel || ''),
+        linkUrl: String(section.linkUrl || ''),
+        buttonLabel: String(section.buttonLabel || ''),
+        buttonUrl: String(section.buttonUrl || ''),
       }
     })
     .filter((section) => section.id)
