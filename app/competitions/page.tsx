@@ -1,17 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import CompetitionCard from '@/components/CompetitionCard'
 import { Trophy } from 'lucide-react'
-import { competitions } from '@/lib/competitions'
+import { CompetitionCmsItem } from '@/lib/competitionCms'
 
 type FilterType = 'all' | 'upcoming' | 'ongoing' | 'completed'
 
 export default function CompetitionsPage() {
   const [filter, setFilter] = useState<FilterType>('all')
+  const [items, setItems] = useState<CompetitionCmsItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filtered = filter === 'all' ? competitions : competitions.filter((c) => c.status === filter)
+  useEffect(() => {
+    const loadCompetitions = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch('/api/competitions')
+        if (!response.ok) throw new Error('Failed to load competitions.')
+        const payload = (await response.json()) as { competitions?: CompetitionCmsItem[] }
+        setItems(payload.competitions ?? [])
+      } catch {
+        setItems([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadCompetitions()
+  }, [])
+
+  const filtered = filter === 'all' ? items : items.filter((c) => c.status === filter)
 
   return (
     <div className="pt-16">
@@ -79,15 +99,18 @@ export default function CompetitionsPage() {
               >
                 <CompetitionCard
                   id={competition.id}
+                  slug={competition.slug}
                   name={competition.name}
                   date={competition.date}
                   description={competition.description}
                   status={competition.status}
                   prize={competition.prize}
+                  miniBannerImageUrl={competition.miniBannerImageUrl}
                 />
               </motion.div>
             ))}
           </div>
+          {loading && <div className="text-center py-10 text-gray-500">Loading competitions...</div>}
           {filtered.length === 0 && (
             <div className="text-center py-16 text-gray-500 dark:text-gray-400">
               No competitions found for this filter.

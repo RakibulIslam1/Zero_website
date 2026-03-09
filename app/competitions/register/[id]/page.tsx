@@ -4,7 +4,6 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
-import { competitions } from '@/lib/competitions'
 import { useAuth } from '@/components/AuthProvider'
 import { useNotification } from '@/components/NotificationProvider'
 import { getFirebaseAuth, getFirebaseStorageClient } from '@/lib/firebase'
@@ -12,6 +11,7 @@ import {
   CompetitionRegistrationSettings,
   createDefaultCompetitionRegistrationSettings,
 } from '@/lib/competitionRegistration'
+import { CompetitionCmsItem } from '@/lib/competitionCms'
 import { JoinUsAnswerValue, JoinUsFileAnswer, isJoinUsFileAnswer } from '@/lib/joinUs'
 
 type PendingFileAnswer = {
@@ -50,7 +50,7 @@ async function uploadFileToStorage(file: File, pathPrefix: string) {
 export default function CompetitionRegisterPage() {
   const params = useParams<{ id: string }>()
   const competitionId = Number(params.id)
-  const competition = competitions.find((item) => item.id === competitionId)
+  const [competition, setCompetition] = useState<CompetitionCmsItem | null>(null)
 
   const {
     user,
@@ -76,6 +76,20 @@ export default function CompetitionRegisterPage() {
 
   useEffect(() => {
     if (!competitionId) return
+
+    const loadCompetition = async () => {
+      try {
+        const response = await fetch('/api/competitions')
+        if (!response.ok) throw new Error('Failed to load competitions.')
+        const payload = (await response.json()) as { competitions?: CompetitionCmsItem[] }
+        const found = (payload.competitions ?? []).find((item) => item.id === competitionId) ?? null
+        setCompetition(found)
+      } catch {
+        setCompetition(null)
+      }
+    }
+
+    void loadCompetition()
 
     const loadSettings = async () => {
       setLoadingSettings(true)

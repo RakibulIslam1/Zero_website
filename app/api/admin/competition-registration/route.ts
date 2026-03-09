@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getFirebaseAdminAuth, getFirebaseAdminDb } from '@/lib/firebaseAdmin'
-import { competitions } from '@/lib/competitions'
 import {
   createDefaultCompetitionRegistrationSettings,
   normalizeCompetitionRegistrationSettings,
 } from '@/lib/competitionRegistration'
+import { getStaticCompetitionCmsItems, normalizeCompetitionCmsItem } from '@/lib/competitionCms'
 
 export const runtime = 'nodejs'
 
@@ -102,7 +102,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'competitionId is required.' }, { status: 400 })
     }
 
-    const competition = competitions.find((entry) => entry.id === competitionId)
+    const competitionDoc = await adminDb.doc(`competitionsCms/${competitionId}`).get()
+    const competition = competitionDoc.exists
+      ? normalizeCompetitionCmsItem(competitionDoc.data() as Record<string, unknown>, competitionId)
+      : getStaticCompetitionCmsItems().find((entry) => entry.id === competitionId)
     if (!competition) {
       return NextResponse.json({ error: 'Competition not found.' }, { status: 404 })
     }

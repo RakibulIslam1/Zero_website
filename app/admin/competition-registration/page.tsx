@@ -4,12 +4,12 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getFirebaseAuth } from '@/lib/firebase'
-import { competitions } from '@/lib/competitions'
 import {
   CompetitionRegistrationApplication,
   createDefaultCompetitionRegistrationSettings,
   CompetitionRegistrationSettings,
 } from '@/lib/competitionRegistration'
+import { CompetitionCmsItem } from '@/lib/competitionCms'
 import { JoinUsField, isJoinUsFileAnswer } from '@/lib/joinUs'
 import { useAuth } from '@/components/AuthProvider'
 import { useNotification } from '@/components/NotificationProvider'
@@ -19,7 +19,8 @@ export default function CompetitionRegistrationAdminPage() {
   const { user, loading, isAdmin } = useAuth()
   const { notifyError, notifySuccess } = useNotification()
 
-  const [selectedCompetitionId, setSelectedCompetitionId] = useState<number>(competitions[0]?.id || 1)
+  const [competitions, setCompetitions] = useState<CompetitionCmsItem[]>([])
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState<number>(1)
   const [settings, setSettings] = useState<CompetitionRegistrationSettings>(
     createDefaultCompetitionRegistrationSettings(competitions[0]?.id || 1),
   )
@@ -33,6 +34,41 @@ export default function CompetitionRegistrationAdminPage() {
       router.push('/login')
     }
   }, [loading, user, router])
+
+  useEffect(() => {
+    if (loading || !user || !isAdmin) return
+
+    const loadCompetitions = async () => {
+      try {
+        const token = await getFirebaseAuth()?.currentUser?.getIdToken(true)
+        if (!token) return
+
+        const response = await fetch('/api/admin/competitions-cms', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(payload.error || 'Failed to load competitions.')
+        }
+
+        const payload = (await response.json()) as { competitions?: CompetitionCmsItem[] }
+        const items = payload.competitions ?? []
+        setCompetitions(items)
+        if (items.length > 0) {
+          setSelectedCompetitionId((current) => (current > 0 ? current : items[0].id))
+          setSettings((prev) => ({ ...prev, competitionId: items[0].id }))
+        }
+      } catch (error) {
+        notifyError(error instanceof Error ? error.message : 'Failed to load competitions.')
+      }
+    }
+
+    void loadCompetitions()
+  }, [loading, user, isAdmin, notifyError])
 
   useEffect(() => {
     if (loading || !user || !isAdmin) return
@@ -205,6 +241,9 @@ export default function CompetitionRegistrationAdminPage() {
             </div>
             <Link href="/admin" className="px-4 py-2 rounded-xl border border-[#e8cfc9] text-sm font-semibold text-gray-700 hover:bg-[#fff4ef]">
               Back to Admin
+            </Link>
+            <Link href="/admin/competitions-cms" className="px-4 py-2 rounded-xl border border-[#e8cfc9] text-sm font-semibold text-gray-700 hover:bg-[#fff4ef]">
+              Competitions CMS
             </Link>
           </div>
 

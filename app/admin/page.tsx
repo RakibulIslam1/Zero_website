@@ -1138,6 +1138,15 @@ export default function AdminPage() {
                     <p className="text-xs text-gray-600 mt-1">Create per-competition forms and manage each competition's registrations.</p>
                   </Link>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Link
+                    href="/admin/competitions-cms"
+                    className="rounded-2xl border border-[#f0d7be] bg-[#fff4e9] px-5 py-4 text-left hover:bg-[#ffe9d0] transition-colors"
+                  >
+                    <p className="text-base font-semibold text-gray-900">Competitions CMS</p>
+                    <p className="text-xs text-gray-600 mt-1">Create/delete competitions, design pages, upload mini banners, and reorder page sections.</p>
+                  </Link>
+                </div>
               </div>
             </>
           ) : (

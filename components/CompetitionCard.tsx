@@ -3,11 +3,13 @@ import { Calendar } from 'lucide-react'
 
 interface CompetitionCardProps {
   id: number
+  slug?: string
   name: string
   date: string
   description: string
   status: 'upcoming' | 'ongoing' | 'completed'
   prize?: string
+  miniBannerImageUrl?: string
 }
 
 const statusConfig = {
@@ -16,11 +18,16 @@ const statusConfig = {
   completed: { label: 'Completed', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
 }
 
-export default function CompetitionCard({ id, name, date, description, status, prize }: CompetitionCardProps) {
+export default function CompetitionCard({ id, slug, name, date, description, status, prize, miniBannerImageUrl }: CompetitionCardProps) {
   const statusInfo = statusConfig[status]
+  const detailsHref = slug ? `/competitions/${slug}` : `/competitions/register/${id}`
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 dark:border-gray-700">
+      {miniBannerImageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={miniBannerImageUrl} alt={`${name} banner`} className="w-full h-32 rounded-xl object-cover mb-4" />
+      )}
       <div className="flex items-start justify-between mb-4">
         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusInfo.className}`}>
           {statusInfo.label}
@@ -36,14 +43,14 @@ export default function CompetitionCard({ id, name, date, description, status, p
         {date}
       </div>
       <Link
-        href={status === 'completed' ? '#' : `/competitions/register/${id}`}
+        href={detailsHref}
         className={`block text-center py-2.5 px-4 rounded-lg font-medium text-sm transition-colors duration-200 ${
           status === 'completed'
-            ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 cursor-default'
+            ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
             : 'bg-accent text-white hover:bg-accent/90'
         }`}
       >
-        {status === 'upcoming' ? 'Register Now' : status === 'ongoing' ? 'Participate' : 'View Results'}
+        {status === 'completed' ? 'View Competition' : 'Open Admission'}
       </Link>
     </div>
   )

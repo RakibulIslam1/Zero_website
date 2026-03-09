@@ -7,7 +7,6 @@ import Image from 'next/image'
 import { Plus } from 'lucide-react'
 import { useAuth, type UserProfile } from '@/components/AuthProvider'
 import { useNotification } from '@/components/NotificationProvider'
-import { competitions } from '@/lib/competitions'
 
 function compressImageToDataUrl(
   file: File,
@@ -216,15 +215,6 @@ export default function ProfilePage() {
 
   const registeredCompetitionDetails = useMemo(() => {
     return registrations
-      .map((registration) => {
-        const found = competitions.find((competition) => competition.id === registration.competitionId)
-        if (!found) return null
-        return {
-          ...found,
-          submittedAt: registration.submittedAt,
-        }
-      })
-      .filter(Boolean)
   }, [registrations])
 
   const openEditProfileSection = () => {
@@ -522,8 +512,8 @@ export default function ProfilePage() {
               ) : (
                 <ul className="space-y-2">
                   {registeredCompetitionDetails.map((competition) => (
-                    <li key={competition?.id} className="text-sm text-gray-700">
-                      {competition?.name}
+                    <li key={`${competition.competitionId}-${competition.submittedAt}`} className="text-sm text-gray-700">
+                      {competition.competitionName}
                     </li>
                   ))}
                 </ul>
