@@ -1130,6 +1130,13 @@ export default function AdminPage() {
                     <p className="text-base font-semibold text-gray-900">Recruitment Section</p>
                     <p className="text-xs text-gray-600 mt-1">Edit Join Us form, review applicants, export CSV, and download photos.</p>
                   </button>
+                  <Link
+                    href="/admin/competition-registration"
+                    className="rounded-2xl border border-[#d8d9f2] bg-[#f1f2ff] px-5 py-4 text-left hover:bg-[#e6e8ff] transition-colors"
+                  >
+                    <p className="text-base font-semibold text-gray-900">Competition Registration Section</p>
+                    <p className="text-xs text-gray-600 mt-1">Create per-competition forms and manage each competition's registrations.</p>
+                  </Link>
                 </div>
               </div>
             </>
