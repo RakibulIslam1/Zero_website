@@ -9,7 +9,13 @@ import { useAuth, UserProfile } from '@/components/AuthProvider'
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { defaultSiteContactSettings } from '@/lib/siteContact'
 import { defaultSiteFeatureBannerSettings } from '@/lib/siteFeatureBanner'
-import { defaultJoinUsSettings, JoinUsField, JoinUsSettings } from '@/lib/joinUs'
+import {
+  defaultJoinUsSettings,
+  isJoinUsFileAnswer,
+  JoinUsAnswerValue,
+  JoinUsField,
+  JoinUsSettings,
+} from '@/lib/joinUs'
 import { useNotification } from '@/components/NotificationProvider'
 
 type AdminProfileRow = UserProfile & { uid: string }
@@ -55,7 +61,7 @@ type RecruitmentApplication = {
   email?: string
   phone?: string
   photoDataUrl?: string
-  answers?: Record<string, string>
+  answers?: Record<string, JoinUsAnswerValue>
   createdAt?: number
   status?: string
 }
@@ -950,7 +956,13 @@ export default function AdminPage() {
     const header = ['Name', 'Email', 'Phone', 'Applied At', ...joinUsSettings.fields.map((field) => field.label)]
     const rows = recruitmentApplications.map((entry) => {
       const appliedAt = entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ''
-      const answerCells = joinUsSettings.fields.map((field) => String(entry.answers?.[field.id] || ''))
+      const answerCells = joinUsSettings.fields.map((field) => {
+        const value = entry.answers?.[field.id]
+        if (isJoinUsFileAnswer(value)) {
+          return value.fileName || 'Uploaded file'
+        }
+        return String(value || '')
+      })
       return [
         String(entry.fullName || ''),
         String(entry.email || ''),
@@ -1472,6 +1484,7 @@ export default function AdminPage() {
                             <option value="phone">Phone</option>
                             <option value="textarea">Textarea</option>
                             <option value="select">Dropdown</option>
+                            <option value="file">File Upload</option>
                           </select>
                           <input
                             type="text"
@@ -1600,12 +1613,26 @@ export default function AdminPage() {
                             )}
 
                             <div className="space-y-2">
-                              {joinUsSettings.fields.map((field) => (
-                                <div key={field.id} className="rounded-lg border border-[#f0d9d4] bg-[#fff9f8] px-3 py-2">
-                                  <p className="text-xs font-semibold text-gray-600">{field.label}</p>
-                                  <p className="text-sm text-gray-800">{String(selectedRecruitment.answers?.[field.id] || 'Not answered')}</p>
-                                </div>
-                              ))}
+                              {joinUsSettings.fields.map((field) => {
+                                const value = selectedRecruitment.answers?.[field.id]
+                                const fileValue = isJoinUsFileAnswer(value) ? value : null
+                                return (
+                                  <div key={field.id} className="rounded-lg border border-[#f0d9d4] bg-[#fff9f8] px-3 py-2">
+                                    <p className="text-xs font-semibold text-gray-600">{field.label}</p>
+                                    {fileValue ? (
+                                      <a
+                                        href={fileValue.dataUrl}
+                                        download={fileValue.fileName}
+                                        className="text-sm text-accent font-semibold hover:underline"
+                                      >
+                                        Download {fileValue.fileName}
+                                      </a>
+                                    ) : (
+                                      <p className="text-sm text-gray-800">{String(value || 'Not answered')}</p>
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                           </div>
                         )}

@@ -1,15 +1,23 @@
 'use client'
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
-import { defaultJoinUsSettings, JoinUsSettings } from '@/lib/joinUs'
+import {
+  defaultJoinUsSettings,
+  isJoinUsFileAnswer,
+  JoinUsAnswerValue,
+  JoinUsFileAnswer,
+  JoinUsSettings,
+} from '@/lib/joinUs'
 
 type JoinUsFormState = {
   fullName: string
   email: string
   phone: string
   photoDataUrl: string
-  answers: Record<string, string>
+  answers: Record<string, JoinUsAnswerValue>
 }
+
+const MAX_DYNAMIC_FILE_SIZE_BYTES = 700 * 1024
 
 export default function JoinUsPage() {
   const [settings, setSettings] = useState<JoinUsSettings>(defaultJoinUsSettings)
@@ -54,6 +62,51 @@ export default function JoinUsPage() {
     () => settings.fields.filter((field) => field.required).map((field) => field.id),
     [settings.fields],
   )
+
+  const handleDynamicFileChange = async (fieldId: string, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      setFormState((prev) => {
+        const nextAnswers = { ...prev.answers }
+        delete nextAnswers[fieldId]
+        return { ...prev, answers: nextAnswers }
+      })
+      return
+    }
+
+    if (file.size > MAX_DYNAMIC_FILE_SIZE_BYTES) {
+      setError('Uploaded file is too large. Please keep each dynamic file under 700KB.')
+      return
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('Failed to read uploaded file.'))
+      reader.readAsDataURL(file)
+    }).catch(() => '')
+
+    if (!dataUrl) {
+      setError('Failed to process uploaded file.')
+      return
+    }
+
+    setError('')
+    const nextAnswer: JoinUsFileAnswer = {
+      fileName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      size: file.size,
+      dataUrl,
+    }
+
+    setFormState((prev) => ({
+      ...prev,
+      answers: {
+        ...prev.answers,
+        [fieldId]: nextAnswer,
+      },
+    }))
+  }
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -106,8 +159,14 @@ export default function JoinUsPage() {
     }
 
     for (const fieldId of requiredFieldIds) {
-      if (!String(formState.answers[fieldId] || '').trim()) {
-        const field = settings.fields.find((entry) => entry.id === fieldId)
+      const field = settings.fields.find((entry) => entry.id === fieldId)
+      const value = formState.answers[fieldId]
+      const hasValue =
+        field?.type === 'file'
+          ? isJoinUsFileAnswer(value) && Boolean(value.dataUrl)
+          : Boolean(String(value || '').trim())
+
+      if (!hasValue) {
         setError(`${field?.label || 'A required field'} is required.`)
         return
       }
@@ -221,61 +280,94 @@ export default function JoinUsPage() {
                     {field.required ? ' *' : ''}
                   </label>
 
-                  {field.type === 'textarea' ? (
-                    <textarea
-                      value={formState.answers[field.id] || ''}
-                      onChange={(event) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          answers: {
-                            ...prev.answers,
-                            [field.id]: event.target.value,
-                          },
-                        }))
-                      }
-                      rows={4}
-                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
-                      required={field.required}
-                    />
-                  ) : field.type === 'select' ? (
-                    <select
-                      value={formState.answers[field.id] || ''}
-                      onChange={(event) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          answers: {
-                            ...prev.answers,
-                            [field.id]: event.target.value,
-                          },
-                        }))
-                      }
-                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
-                      required={field.required}
-                    >
-                      <option value="">Select an option</option>
-                      {field.options.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={field.type === 'phone' ? 'tel' : field.type}
-                      value={formState.answers[field.id] || ''}
-                      onChange={(event) =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          answers: {
-                            ...prev.answers,
-                            [field.id]: event.target.value,
-                          },
-                        }))
-                      }
-                      className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
-                      required={field.required}
-                    />
-                  )}
+                  {(() => {
+                    const answerValue = formState.answers[field.id]
+                    const fileAnswer = isJoinUsFileAnswer(answerValue) ? answerValue : null
+                    const textValue = typeof answerValue === 'string' ? answerValue : ''
+
+                    if (field.type === 'textarea') {
+                      return (
+                        <textarea
+                          value={textValue}
+                          onChange={(event) =>
+                            setFormState((prev) => ({
+                              ...prev,
+                              answers: {
+                                ...prev.answers,
+                                [field.id]: event.target.value,
+                              },
+                            }))
+                          }
+                          rows={4}
+                          className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                          required={field.required}
+                        />
+                      )
+                    }
+
+                    if (field.type === 'select') {
+                      return (
+                        <select
+                          value={textValue}
+                          onChange={(event) =>
+                            setFormState((prev) => ({
+                              ...prev,
+                              answers: {
+                                ...prev.answers,
+                                [field.id]: event.target.value,
+                              },
+                            }))
+                          }
+                          className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                          required={field.required}
+                        >
+                          <option value="">Select an option</option>
+                          {field.options.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    }
+
+                    if (field.type === 'file') {
+                      return (
+                        <div className="space-y-2">
+                          <input
+                            type="file"
+                            onChange={(event) => void handleDynamicFileChange(field.id, event)}
+                            className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-xl file:border-0 file:bg-accent file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-accent/90"
+                            required={field.required && !fileAnswer}
+                          />
+                          <p className="text-xs text-gray-500">Any file type is supported. Max size: 700KB per field.</p>
+                          {fileAnswer && (
+                            <p className="text-xs text-green-700">
+                              Selected: {fileAnswer.fileName} ({Math.round(fileAnswer.size / 1024)} KB)
+                            </p>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <input
+                        type={field.type === 'phone' ? 'tel' : field.type}
+                        value={textValue}
+                        onChange={(event) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            answers: {
+                              ...prev.answers,
+                              [field.id]: event.target.value,
+                            },
+                          }))
+                        }
+                        className="w-full px-4 py-2.5 rounded-2xl border border-[#e8cfc9] focus:outline-none focus:ring-2 focus:ring-accent/30"
+                        required={field.required}
+                      />
+                    )
+                  })()}
                 </div>
               ))}
 

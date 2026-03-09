@@ -1,4 +1,24 @@
-export type JoinUsFieldType = 'text' | 'email' | 'phone' | 'textarea' | 'select'
+export type JoinUsFieldType = 'text' | 'email' | 'phone' | 'textarea' | 'select' | 'file'
+
+export type JoinUsFileAnswer = {
+  fileName: string
+  mimeType: string
+  size: number
+  dataUrl: string
+}
+
+export type JoinUsAnswerValue = string | JoinUsFileAnswer
+
+export function isJoinUsFileAnswer(value: unknown): value is JoinUsFileAnswer {
+  if (!value || typeof value !== 'object') return false
+  const entry = value as Record<string, unknown>
+  return (
+    typeof entry.fileName === 'string' &&
+    typeof entry.mimeType === 'string' &&
+    typeof entry.size === 'number' &&
+    typeof entry.dataUrl === 'string'
+  )
+}
 
 export type JoinUsField = {
   id: string

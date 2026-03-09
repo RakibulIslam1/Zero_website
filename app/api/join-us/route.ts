@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getFirebaseAdminDb } from '@/lib/firebaseAdmin'
-import { normalizeJoinUsSettings } from '@/lib/joinUs'
+import { JoinUsAnswerValue, normalizeJoinUsSettings } from '@/lib/joinUs'
 
 export const runtime = 'nodejs'
 
@@ -9,7 +9,7 @@ type JoinUsApplyPayload = {
   email?: string
   phone?: string
   photoDataUrl?: string
-  answers?: Record<string, string>
+  answers?: Record<string, JoinUsAnswerValue>
 }
 
 export async function GET() {
