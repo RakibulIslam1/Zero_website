@@ -1,8 +1,8 @@
 import Hero from '@/components/Hero'
 import Services from '@/components/Services'
-import Stats from '@/components/Stats'
 import CTA from '@/components/CTA'
 import FeatureBanner from '@/components/FeatureBanner'
+import HomeModules from '@/components/HomeModules'
 
 export default function HomePage() {
   return (
@@ -10,7 +10,7 @@ export default function HomePage() {
       <Hero />
       <FeatureBanner />
       <Services />
-      <Stats />
+      <HomeModules />
       <CTA />
     </>
   )

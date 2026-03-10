@@ -10,6 +10,11 @@ import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase'
 import { defaultSiteContactSettings } from '@/lib/siteContact'
 import { defaultSiteFeatureBannerSettings } from '@/lib/siteFeatureBanner'
 import {
+  defaultHomepageModulesSettings,
+  HomepageModulesSettings,
+  PartnerLogo,
+} from '@/lib/homepageModules'
+import {
   defaultJoinUsSettings,
   isJoinUsFileAnswer,
   JoinUsAnswerValue,
@@ -106,7 +111,7 @@ export default function AdminPage() {
   const [registrationsByUid, setRegistrationsByUid] = useState<Record<string, AdminRegistration[]>>({})
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([])
   const [loadingContactMessages, setLoadingContactMessages] = useState(true)
-  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages' | 'contactSettings' | 'featureBanner' | 'recruitment'>('overview')
+  const [activeSection, setActiveSection] = useState<'overview' | 'profiles' | 'messages' | 'contactSettings' | 'featureBanner' | 'homepageModules' | 'recruitment'>('overview')
   const [selectedContactId, setSelectedContactId] = useState('')
   const [replyDraft, setReplyDraft] = useState('')
   const [isSendingReply, setIsSendingReply] = useState(false)
@@ -119,6 +124,11 @@ export default function AdminPage() {
   const [savingFeatureBannerSettings, setSavingFeatureBannerSettings] = useState(false)
   const [featureBannerMessage, setFeatureBannerMessage] = useState('')
   const [featureBannerUploadError, setFeatureBannerUploadError] = useState('')
+  const [homepageModulesSettings, setHomepageModulesSettings] = useState<HomepageModulesSettings>(defaultHomepageModulesSettings)
+  const [loadingHomepageModulesSettings, setLoadingHomepageModulesSettings] = useState(true)
+  const [savingHomepageModulesSettings, setSavingHomepageModulesSettings] = useState(false)
+  const [homepageModulesMessage, setHomepageModulesMessage] = useState('')
+  const [homepageModulesUploadError, setHomepageModulesUploadError] = useState('')
   const [isDeletingContact, setIsDeletingContact] = useState(false)
   const [joinUsSettings, setJoinUsSettings] = useState<JoinUsSettings>(defaultJoinUsSettings)
   const [loadingJoinUsData, setLoadingJoinUsData] = useState(true)
@@ -151,6 +161,12 @@ export default function AdminPage() {
     notifySuccess(featureBannerMessage)
     setFeatureBannerMessage('')
   }, [featureBannerMessage, notifySuccess])
+
+  useEffect(() => {
+    if (!homepageModulesMessage) return
+    notifySuccess(homepageModulesMessage)
+    setHomepageModulesMessage('')
+  }, [homepageModulesMessage, notifySuccess])
 
   useEffect(() => {
     if (!joinUsMessage) return
@@ -333,6 +349,34 @@ export default function AdminPage() {
     }
 
     void loadFeatureBannerSettings()
+  }, [authLoading, user, isAdmin])
+
+  useEffect(() => {
+    if (authLoading || !user || !isAdmin) return
+
+    const loadHomepageModulesSettings = async () => {
+      setLoadingHomepageModulesSettings(true)
+
+      try {
+        const response = await fetch('/api/homepage-modules', {
+          method: 'GET',
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(payload.error || 'Failed to load homepage modules settings.')
+        }
+
+        const payload = (await response.json()) as { settings?: HomepageModulesSettings }
+        setHomepageModulesSettings(payload.settings || defaultHomepageModulesSettings)
+      } catch (err) {
+        setError(toAdminError(err, 'Failed to load homepage modules settings.'))
+      } finally {
+        setLoadingHomepageModulesSettings(false)
+      }
+    }
+
+    void loadHomepageModulesSettings()
   }, [authLoading, user, isAdmin])
 
   useEffect(() => {
@@ -857,6 +901,103 @@ export default function AdminPage() {
     }
   }
 
+  const handleAddPartner = () => {
+    const next: PartnerLogo = {
+      id: `partner_${Date.now()}`,
+      name: 'New Partner',
+      imageDataUrl: '',
+    }
+    setHomepageModulesSettings((prev) => ({
+      ...prev,
+      partners: [...prev.partners, next],
+    }))
+  }
+
+  const handleRemovePartner = (id: string) => {
+    setHomepageModulesSettings((prev) => ({
+      ...prev,
+      partners: prev.partners.filter((entry) => entry.id !== id),
+    }))
+  }
+
+  const handlePartnerNameChange = (id: string, name: string) => {
+    setHomepageModulesSettings((prev) => ({
+      ...prev,
+      partners: prev.partners.map((entry) => (entry.id === id ? { ...entry, name } : entry)),
+    }))
+  }
+
+  const handlePartnerImageChange = async (id: string, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    setHomepageModulesUploadError('')
+
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setHomepageModulesUploadError('Please upload an image file only.')
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setHomepageModulesUploadError('Logo image size must be 2MB or less.')
+      return
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('Failed to read image file.'))
+      reader.readAsDataURL(file)
+    }).catch(() => '')
+
+    if (!dataUrl) {
+      setHomepageModulesUploadError('Failed to process logo image.')
+      return
+    }
+
+    setHomepageModulesSettings((prev) => ({
+      ...prev,
+      partners: prev.partners.map((entry) => (entry.id === id ? { ...entry, imageDataUrl: dataUrl } : entry)),
+    }))
+  }
+
+  const handleSaveHomepageModulesSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError(null)
+    setHomepageModulesMessage('')
+    setHomepageModulesUploadError('')
+    setSavingHomepageModulesSettings(true)
+
+    try {
+      const token = await getFirebaseAuth()?.currentUser?.getIdToken(true)
+      if (!token) {
+        throw new Error('You must be logged in as admin to update homepage modules.')
+      }
+
+      const response = await fetch('/api/homepage-modules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(homepageModulesSettings),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || 'Failed to update homepage modules settings.')
+      }
+
+      setHomepageModulesMessage('Homepage modules updated successfully.')
+    } catch (err) {
+      setError(toAdminError(err, 'Failed to update homepage modules settings.'))
+    } finally {
+      setSavingHomepageModulesSettings(false)
+    }
+  }
+
   const handleJoinUsHeaderImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     setJoinUsUploadError('')
@@ -1120,6 +1261,14 @@ export default function AdminPage() {
                     <p className="text-base font-semibold text-gray-900">Feature Banner Section</p>
                     <p className="text-xs text-gray-600 mt-1">Upload the homepage banner and set redirect link when users click it.</p>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('homepageModules')}
+                    className="rounded-2xl border border-[#d2e5f2] bg-[#ecf7ff] px-5 py-4 text-left hover:bg-[#deefff] transition-colors"
+                  >
+                    <p className="text-base font-semibold text-gray-900">Homepage Modules Section</p>
+                    <p className="text-xs text-gray-600 mt-1">Enable/disable Stats and Partners slider, and manage partner logos.</p>
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
@@ -1159,6 +1308,8 @@ export default function AdminPage() {
                       ? 'Message Section'
                       : activeSection === 'contactSettings'
                         ? 'Contact Settings Section'
+                        : activeSection === 'homepageModules'
+                          ? 'Homepage Modules Section'
                         : activeSection === 'featureBanner'
                           ? 'Feature Banner Section'
                           : 'Recruitment Section'}
@@ -1170,6 +1321,8 @@ export default function AdminPage() {
                       ? 'Reply to users and continue conversation threads.'
                       : activeSection === 'contactSettings'
                         ? 'Edit public contact and address details at any time.'
+                        : activeSection === 'homepageModules'
+                          ? 'Control homepage stats and partners slider visibility and content.'
                         : activeSection === 'featureBanner'
                           ? 'Upload and link the feature banner shown on homepage.'
                           : 'Manage Join Us form and applicant submissions.'}
@@ -1419,6 +1572,115 @@ export default function AdminPage() {
                     className="px-5 py-2.5 rounded-2xl bg-accent text-white font-semibold hover:bg-accent/90 disabled:opacity-60 transition-colors"
                   >
                     {savingFeatureBannerSettings ? 'Saving...' : 'Save Feature Banner'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+        )}
+
+        {activeSection === 'homepageModules' && (
+          <section className="bg-white rounded-3xl p-7 border border-[#e8cfc9] shadow-sm">
+            {loadingHomepageModulesSettings ? (
+              <p className="text-sm text-gray-600">Loading homepage module settings...</p>
+            ) : (
+              <form onSubmit={handleSaveHomepageModulesSettings} className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="rounded-2xl border border-[#d4e6f5] bg-[#f2f9ff] px-4 py-3 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={homepageModulesSettings.showStats}
+                      onChange={(event) =>
+                        setHomepageModulesSettings((prev) => ({ ...prev, showStats: event.target.checked }))
+                      }
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Show Stats Section</p>
+                      <p className="text-xs text-gray-600">Enable/disable counting statistics on homepage.</p>
+                    </div>
+                  </label>
+
+                  <label className="rounded-2xl border border-[#d4e6f5] bg-[#f2f9ff] px-4 py-3 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={homepageModulesSettings.showPartners}
+                      onChange={(event) =>
+                        setHomepageModulesSettings((prev) => ({ ...prev, showPartners: event.target.checked }))
+                      }
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Show Partners Slider</p>
+                      <p className="text-xs text-gray-600">Enable/disable the animated partner logos slider.</p>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="rounded-2xl border border-[#d4e6f5] bg-[#f7fbff] p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900">Partners</p>
+                    <button
+                      type="button"
+                      onClick={handleAddPartner}
+                      className="px-3 py-1.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent/90"
+                    >
+                      Add Partner
+                    </button>
+                  </div>
+
+                  {homepageModulesUploadError && (
+                    <p className="text-sm text-red-700">{homepageModulesUploadError}</p>
+                  )}
+
+                  {homepageModulesSettings.partners.length === 0 ? (
+                    <p className="text-sm text-gray-600">No partners added yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {homepageModulesSettings.partners.map((partner) => (
+                        <div key={partner.id} className="rounded-xl border border-[#d9e9f7] bg-white p-3 space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <input
+                              type="text"
+                              value={partner.name}
+                              onChange={(event) => handlePartnerNameChange(partner.id, event.target.value)}
+                              placeholder="Partner name"
+                              className="px-3 py-2 rounded-xl border border-[#e8cfc9]"
+                            />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) => void handlePartnerImageChange(partner.id, event)}
+                              className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-xl file:border-0 file:bg-accent file:px-3 file:py-1.5 file:font-semibold file:text-white"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            {partner.imageDataUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={partner.imageDataUrl} alt={partner.name} className="h-12 w-auto max-w-[160px] object-contain" />
+                            ) : (
+                              <p className="text-xs text-gray-500">No logo uploaded yet.</p>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePartner(partner.id)}
+                              className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={savingHomepageModulesSettings}
+                    className="px-5 py-2.5 rounded-2xl bg-accent text-white font-semibold hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                  >
+                    {savingHomepageModulesSettings ? 'Saving...' : 'Save Homepage Modules'}
                   </button>
                 </div>
               </form>
