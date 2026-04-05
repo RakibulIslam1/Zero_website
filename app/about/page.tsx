@@ -224,9 +224,18 @@ export default function AboutPage() {
           </motion.h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
             {[
-              { title: 'Expert Team', description: '100+ seasoned professionals with diverse expertise' },
-              { title: 'Proven Track Record', description: '200+ successful projects across multiple industries' },
-              { title: 'Client-First Approach', description: 'Your success is our priority, every step of the way' },
+              {
+                title: 'Universal Access',
+                description: 'Bridging the gap between local brilliance and global stages.',
+              },
+              {
+                title: 'Rigorous Excellence',
+                description: 'Transforming raw potential into international competitive success.',
+              },
+              {
+                title: 'Global Legacy',
+                description: 'Representing Bangladesh\'s excellence on the world\'s most prestigious stages.',
+              },
             ].map((item, index) => (
               <motion.div
                 key={item.title}
