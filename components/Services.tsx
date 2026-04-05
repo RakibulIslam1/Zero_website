@@ -46,7 +46,7 @@ export default function Services() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-4xl font-bold text-gray-900 dark:text-white mb-4"
+            className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4"
           >
             What We Do
           </motion.h2>
@@ -55,13 +55,13 @@ export default function Services() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
+            className="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
           >
             Everything we do is built around one mission — putting Bangladesh's brightest minds on the global stage.
           </motion.p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
           {services.map((service, index) => (
             <motion.div
               key={service.title}
@@ -69,15 +69,17 @@ export default function Services() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="p-8 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:shadow-lg dark:hover:shadow-gray-700 transition-all duration-300 group"
+              className="p-4 sm:p-6 lg:p-8 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:shadow-lg dark:hover:shadow-gray-700 transition-all duration-300 group"
             >
-              <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-accent/20 transition-colors">
-                <service.icon size={24} className="text-accent" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-accent/10 rounded-xl flex items-center justify-center mb-3 sm:mb-4 lg:mb-6 group-hover:bg-accent/20 transition-colors">
+                <service.icon size={16} className="sm:hidden text-accent" />
+                <service.icon size={20} className="hidden sm:block lg:hidden text-accent" />
+                <service.icon size={24} className="hidden lg:block text-accent" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-sm sm:text-base lg:text-xl font-semibold text-gray-900 dark:text-white mb-1.5 sm:mb-2 lg:mb-3 leading-snug">
                 {service.title}
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+              <p className="text-xs sm:text-sm lg:text-base text-gray-600 dark:text-gray-400 leading-relaxed">
                 {service.description}
               </p>
             </motion.div>
