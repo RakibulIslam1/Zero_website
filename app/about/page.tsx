@@ -5,10 +5,30 @@ import { Target, Eye, Heart, Lightbulb, Shield, Users } from 'lucide-react'
 import TeamCard from '@/components/TeamCard'
 
 const values = [
-  { icon: Lightbulb, title: 'Innovation', description: 'We embrace new ideas and cutting-edge technology to solve complex challenges.' },
-  { icon: Shield, title: 'Integrity', description: 'Honesty and transparency are the foundation of everything we do.' },
-  { icon: Users, title: 'Collaboration', description: 'We believe the best results come from working together.' },
-  { icon: Heart, title: 'Passion', description: 'We are passionate about our work and dedicated to excellence.' },
+  {
+    icon: Shield,
+    title: 'Merit Before Privilege',
+    description:
+      'We believe international opportunities should be earned through ability, discipline, and performance, not proximity, status, or connections.',
+  },
+  {
+    icon: Users,
+    title: 'National Access',
+    description:
+      'Talent exists in every district. ZERO is built to reach students beyond familiar circles and create a fair pathway for the brightest minds across Bangladesh.',
+  },
+  {
+    icon: Lightbulb,
+    title: 'Preparation at Global Standards',
+    description:
+      'We do not aim for participation alone. We prepare students with the intensity, structure, and seriousness required to compete on the world stage.',
+  },
+  {
+    icon: Heart,
+    title: 'Lift As We Rise',
+    description:
+      'Our model grows stronger when alumni, mentors, volunteers, and partners return to guide the next generation with generosity and responsibility.',
+  },
 ]
 
 const teamMembers = [
@@ -139,6 +159,10 @@ export default function AboutPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Our Core Values</h2>
+            <p className="text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+              ZERO exists to identify exceptional talent, prepare students with serious competitive discipline,
+              and open real international pathways for the next generation of Bangladeshi problem-solvers.
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {values.map((value, index) => (
