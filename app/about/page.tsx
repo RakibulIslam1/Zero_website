@@ -9,25 +9,25 @@ const values = [
     icon: Shield,
     title: 'Merit Before Privilege',
     description:
-      'We believe international opportunities should be earned through ability, discipline, and performance, not proximity, status, or connections.',
+      'International opportunities should be earned through ability, discipline, and performance.',
   },
   {
     icon: Users,
     title: 'National Access',
     description:
-      'Talent exists in every district. ZERO is built to reach students beyond familiar circles and create a fair pathway for the brightest minds across Bangladesh.',
+      'We work to reach brilliant students across Bangladesh, not just familiar circles.',
   },
   {
     icon: Lightbulb,
     title: 'Preparation at Global Standards',
     description:
-      'We do not aim for participation alone. We prepare students with the intensity, structure, and seriousness required to compete on the world stage.',
+      'We prepare students with the intensity and structure needed for world-class competition.',
   },
   {
     icon: Heart,
     title: 'Lift As We Rise',
     description:
-      'Our model grows stronger when alumni, mentors, volunteers, and partners return to guide the next generation with generosity and responsibility.',
+      'Alumni, mentors, and partners strengthen ZERO by guiding the next generation.',
   },
 ]
 
