@@ -1,38 +1,38 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Code, Globe, Zap, Shield, TrendingUp, Users } from 'lucide-react'
+import { Globe2, Target, GraduationCap, ClipboardList, FlaskConical, HeartHandshake } from 'lucide-react'
 
 const services = [
   {
-    icon: Code,
-    title: 'Software Development',
-    description: 'Custom software solutions built with cutting-edge technologies to meet your unique business needs.',
+    icon: Globe2,
+    title: 'Global Partnerships',
+    description: 'Securing the official pathways and international seats required for local talent to compete on the world\'s most prestigious stages.',
   },
   {
-    icon: Globe,
-    title: 'Web Applications',
-    description: 'Scalable, performant web applications designed for the modern digital landscape.',
+    icon: Target,
+    title: 'National Qualifiers',
+    description: 'Operating a merit-first scouting system that reaches every district to ensure equal opportunity for every brilliant mind in the country.',
   },
   {
-    icon: Zap,
-    title: 'Performance Optimization',
-    description: 'We optimize your systems for maximum efficiency, speed, and reliability.',
+    icon: GraduationCap,
+    title: 'Elite Mentorships & Training',
+    description: 'Refining raw intellect through high-intensity boot camps and masterclasses designed to meet the rigorous standards of global competition.',
   },
   {
-    icon: Shield,
-    title: 'Cybersecurity',
-    description: 'Robust security solutions that protect your data and digital assets around the clock.',
+    icon: ClipboardList,
+    title: 'End-to-End Logistics',
+    description: 'Managing every administrative hurdle—from registrations and visas to international travel—to keep the focus entirely on the competition.',
   },
   {
-    icon: TrendingUp,
-    title: 'Digital Strategy',
-    description: 'Strategic consulting to help you navigate digital transformation and growth.',
+    icon: FlaskConical,
+    title: 'Physical Research Lab',
+    description: 'Providing the infrastructure for hands-on innovation where theoretical knowledge is transformed into tangible prototypes and solutions.',
   },
   {
-    icon: Users,
-    title: 'Team Augmentation',
-    description: 'Expert professionals who seamlessly integrate with your team to accelerate delivery.',
+    icon: HeartHandshake,
+    title: 'Volunteering Experience',
+    description: 'Cultivating a community-driven ecosystem where alumni and industry experts return to mentor and lift the next generation of leaders.',
   },
 ]
 
@@ -57,7 +57,7 @@ export default function Services() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
           >
-            We deliver comprehensive technology services that drive innovation and business growth.
+            Everything we do is built around one mission — putting Bangladesh's brightest minds on the global stage.
           </motion.p>
         </div>
 
